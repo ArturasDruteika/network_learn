@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(server)
+project(client__lesson_1)
 
 set(CMAKE_BUILD_PARALLEL_LEVEL)
 set(CMAKE_CXX_STANDARD 23)

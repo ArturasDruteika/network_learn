@@ -1,0 +1,41 @@
+#include <arpa/inet.h>
+#include <cstring>
+#include <iostream>
+#include <unistd.h>
+
+const int port = 8080;
+
+int main()
+{
+    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    sockaddr_in server_addr{};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
+    listen(server_socket, 1);
+
+    std::cout << "Waiting for client...\n";
+
+    sockaddr_in client_addr{};
+    socklen_t client_len = sizeof(client_addr);
+
+    int client_socket = accept(server_socket, (sockaddr*)&client_addr, &client_len);
+
+    char buffer[1024]{};
+
+    recv(client_socket, buffer, sizeof(buffer), 0);
+
+    std::cout << "Received: " << buffer << '\n';
+
+    const char* reply = "Pong";
+
+    send(client_socket, reply, strlen(reply) + 1, 0);
+
+    close(client_socket);
+    close(server_socket);
+
+    return 0;
+}

@@ -1,6 +1,7 @@
+#include "spdlog/spdlog.h"
+
 #include <arpa/inet.h>
 #include <cstring>
-#include <iostream>
 #include <unistd.h>
 
 const int port = 8080;
@@ -25,7 +26,7 @@ int main()
 
     recv(socket_fd, buffer, sizeof(buffer), 0);
 
-    std::cout << "Server replied: " << buffer << '\n';
+    spdlog::info("Server replied: {}", buffer);
 
     close(socket_fd);
 

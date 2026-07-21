@@ -1,6 +1,7 @@
+#include "spdlog/spdlog.h"
+
 #include <arpa/inet.h>
 #include <cstring>
-#include <iostream>
 #include <unistd.h>
 
 const int port = 8080;
@@ -17,7 +18,7 @@ int main()
     bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
     listen(server_socket, 1);
 
-    std::cout << "Waiting for client...\n";
+    spdlog::info("Waiting for client...");
 
     sockaddr_in client_addr{};
     socklen_t client_len = sizeof(client_addr);
@@ -28,7 +29,7 @@ int main()
 
     recv(client_socket, buffer, sizeof(buffer), 0);
 
-    std::cout << "Received: " << buffer << '\n';
+    spdlog::info("Received: {}", buffer);
 
     const char* reply = "Pong";
 

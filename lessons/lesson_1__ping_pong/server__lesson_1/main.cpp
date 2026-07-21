@@ -4,7 +4,9 @@
 #include <cstring>
 #include <unistd.h>
 
-const int port = 8080;
+
+constexpr int PORT = 8080;
+
 
 int main()
 {
@@ -12,7 +14,7 @@ int main()
 
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
+    server_addr.sin_port = htons(PORT);
     server_addr.sin_addr.s_addr = INADDR_ANY;
 
     bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));

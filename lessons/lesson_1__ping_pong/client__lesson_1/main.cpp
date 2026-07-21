@@ -2,9 +2,13 @@
 
 #include <arpa/inet.h>
 #include <cstring>
+#include <string_view>
 #include <unistd.h>
 
-const int port = 8080;
+
+constexpr int PORT = 8080;
+constexpr std::string_view HOST = "127.0.0.1";
+
 
 int main()
 {
@@ -12,9 +16,9 @@ int main()
 
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
+    server_addr.sin_port = htons(PORT);
 
-    inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr);
+    inet_pton(AF_INET, HOST.data(), &server_addr.sin_addr);
 
     connect(socket_fd, (sockaddr*)&server_addr, sizeof(server_addr));
 

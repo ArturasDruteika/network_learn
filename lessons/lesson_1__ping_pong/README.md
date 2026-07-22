@@ -29,3 +29,164 @@ So, without further adu, let's dive into the code and understand everything to b
 
 ## Program
 
+In networking, almost always there are 2 types of roles for the programs:
+
+1. **Server** - program that is dealing with client requests
+2. **Client** - program that sends requests to the server
+
+The idea that you need to have a server and a client, but, there can be many different servers and many different client implementations. For example, one server might only be responsible for temperature, meaning that if a client connects, this server immediately sends the current weather temperature, another server might be a chatroom where clients can connect and communicate with each other. Same idea goes with clients also. One client could work as some sort of a notification medium which can ping the temperature server to receive the temperature, the other client want to connect and communicate with other clients so it will connect to the chatroom server and etc..
+
+In order to have a valid ping pong logic, we need to have 2 programs: srver and client.
+
+
+### Note!!!
+
+Before we begin, I just wanted to express, that some lines of the code will not be explained due to the fact that the line is clear or intuitive.
+
+Server code:
+
+```C++
+#include "spdlog/spdlog.h"
+
+#include <arpa/inet.h>
+#include <unistd.h>
+
+
+constexpr int PORT = 8080;
+
+
+int main()
+{
+    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    sockaddr_in server_addr{};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
+    listen(server_socket, 1);
+
+    spdlog::info("Waiting for client...");
+
+    sockaddr_in client_addr{};
+    socklen_t client_len = sizeof(client_addr);
+
+    int client_socket = accept(server_socket, (sockaddr*)&client_addr, &client_len);
+
+    char buffer[1024]{};
+
+    recv(client_socket, buffer, sizeof(buffer), 0);
+
+    spdlog::info("Received: {}", buffer);
+
+    const char* reply = "Pong";
+
+    send(client_socket, reply, strlen(reply) + 1, 0);
+
+    close(client_socket);
+    close(server_socket);
+
+    return 0;
+}
+```
+
+Client code:
+
+```C++
+#include "spdlog/spdlog.h"
+
+#include <arpa/inet.h>
+#include <string_view>
+#include <unistd.h>
+
+
+constexpr int PORT = 8080;
+constexpr std::string_view HOST = "127.0.0.1";
+
+
+int main()
+{
+    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    sockaddr_in server_addr{};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
+
+    inet_pton(AF_INET, HOST.data(), &server_addr.sin_addr);
+
+    connect(socket_fd, (sockaddr*)&server_addr, sizeof(server_addr));
+
+    const char* message = "Ping";
+
+    send(socket_fd, message, strlen(message) + 1, 0);
+
+    char buffer[1024]{};
+
+    recv(socket_fd, buffer, sizeof(buffer), 0);
+
+    spdlog::info("Server replied: {}", buffer);
+
+    close(socket_fd);
+
+    return 0;
+}
+```
+
+If you struggle to visually understand this program, I hope this image will help you:
+
+![](assets/ping_pong_test.png)
+
+
+### Server code
+
+Let's first analyze the server code, because without it, the concept of clients kind of does not make any sense.
+
+
+#### Includes
+
+`#include "spdlog/spdlog.h"` a simple logging tool. We will never use `std::cout` since spdlog is many times better.
+
+`#include <arpa/inet.h>` library provides internet address manipulation functions. What these are will be explained in later sections.
+
+`#include <unistd.h>` library that provides access to OS services such as:
+
+* File operations:
+    
+    * `read()`
+    * `write()`
+    * `close()`
+
+* Process management:
+    
+    * `forc()`
+    * `exec()`
+    * `getpid()`
+
+* Sleeping:
+
+    * `sleep()`
+    * `usleep()`
+
+* Pipes:
+
+    * `pipe()`
+
+* File descritor operations:
+
+    * `dup()`
+    * `dup2()`
+
+Whether we will need these operations later, I do not know, but I still, I felt the need to write them down...
+
+
+#### IP and Port
+
+Some of the biggest concepts in networking in general. I mean, without understanding these 2 meanings, going forward, at least in TCP networking, is going to be really hard. So, what do they mean?
+
+**IP** - stands for Internet Protocol. It is an unique address like assigned to every device that is connected to any network. Why do devices need it? 
+
+The main idea is that we want to have some ability to distinguish on the network which device is which. Imagine that there is a server (right now do now overthink about what it is, and imagine it like a simple box that clients can connect to) that is an actual chatroom, where clients can connect to and text with each other. If client A sends a message dedicated to client B, how can a server know how to make it so that only the client B would receive and not others? This is where the IP comes into play.
+
+If a client has an IP, now it can be distinguished from that 100 different clients. IP is essentailly like an ID, which allows network to identify devices.
+

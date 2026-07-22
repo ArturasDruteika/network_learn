@@ -1,7 +1,6 @@
 #include "spdlog/spdlog.h"
 
 #include <arpa/inet.h>
-#include <cstring>
 #include <string_view>
 #include <unistd.h>
 

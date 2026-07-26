@@ -184,9 +184,45 @@ Whether we will need these operations later, I do not know, but I still, I felt 
 
 Some of the biggest concepts in networking in general. I mean, without understanding these 2 meanings, going forward, at least in TCP networking, is going to be really hard. So, what do they mean?
 
-**IP** - stands for Internet Protocol. It is an unique address like assigned to every device that is connected to any network. Why do devices need it? 
+**IP** - stands for Internet Protocol. Most of the connected devices to a network have at least 1 IP address.. Why do devices need it? 
 
 The main idea is that we want to have some ability to distinguish on the network which device is which. Imagine that there is a server (right now do now overthink about what it is, and imagine it like a simple box that clients can connect to) that is an actual chatroom, where clients can connect to and text with each other. If client A sends a message dedicated to client B, how can a server know how to make it so that only the client B would receive and not others? This is where the IP comes into play.
 
 If a client has an IP, now it can be distinguished from that 100 different clients. IP is essentailly like an ID, which allows network to identify devices.
+
+First of all, IP is just a simple number. It's format is this: XXX.XXX.XXX.XXX. A common example of a real IP address: 192.168.1.1. Let's understand, why IP has the format the way it has.
+
+Computers do not think about IP addresses the same way we look at them. For computers, IP is a 32 bit number that is comprised of 0s and 1s. Again, for example, 192.168.1.1 IP address is for one device, 192.168.1.2 is for another device, 200.200.200.200 is for some other device. Because there are 32 bit, in total there are $2^{32} = 4,294,967,295$ different possible IP addresses. 
+
+You might ask "Why only something over 4.2 billion addresses, aren't there more unique devices now?". Well, the answer is yes, but in the 1970s, when computer networking was literally in the child stage, engineers thought that 32 bits will be enough for all the devices that will ever to be. Or they were like "we do not have time to think about it, let's leave for future generations to solve...". Just to make you feel safer, now, there is a 64 bit address, but we will talk about it in the later lessons.
+
+Going back to the IP format. Remember how I said that computers see IP addresses in binary, let's see how it sees some random IP address:
+
+$
+    192.168.1.42 = 11000000.10101000.00000001.00101010
+$
+
+To better understand it, let's display the same stuff vertically:
+
+$
+    \begin{aligned}
+        192 & = 11000000 \\
+        168 & = 10101000 \\
+        1 & = 00000001 \\
+        42 & = 00101010
+    \end{aligned}
+$
+
+PS. to know how to convert binary to decimal, just watch [this simple YouTube short](https://www.youtube.com/shorts/HRfpUqWn7rs). For slightly longer explanations:
+
+* [Binary to Decimal](https://www.youtube.com/watch?v=VLflTjd3lWA&list=PL0o_zxa4K1BXCpQbUdf0htZE8SS0PYjy-)
+* [Decimal to Binary](https://www.youtube.com/watch?v=rsxT4FfRBaM)
+
+As you can see, this IP address can be seen as 4 groups (sections) of 8 bit. 8 bits comprise a single **byte** (or octet in networking). So IP address can be seen as a group (section) of 4 bytes.
+
+Why use dots to separate this 32 bit number into 4 different 8 bit numbers. The answer is because it was only desgned this way so that we could easier interpret it. There is no hidden reason behind, only that it is easier for us. For computers, it does not matter, the computers always sees IP addresses as a 32 bit number. The formating is just for us. 
+
+n the previous example I showed how this number 192.168.1.42 looks in binary, but what if every section was all 1s? If a section of 8 bits is all 1s, the number is going to be equal to 255, the largest number that can be comprised of 8 bits. If our 32 bit IP address was all 1s, then the IP would be 255.255.255.255, if it is all 0s, then it is 0.0.0.0.
+
+For now I think that is enough to know about the IP address for this lesson. What I want you to understand is that IP is just a simple number comprised of 32 bits.
 

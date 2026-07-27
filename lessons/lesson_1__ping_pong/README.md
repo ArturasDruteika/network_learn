@@ -226,3 +226,22 @@ n the previous example I showed how this number 192.168.1.42 looks in binary, bu
 
 For now I think that is enough to know about the IP address for this lesson. What I want you to understand is that IP is just a simple number comprised of 32 bits.
 
+**Port** is a logical communication endpoint used by the transport layer (such as TCP or UDP (I will explain what they are later)) to identify a specific program on a service running on a device.
+
+A grea analogy for IPs and ports is imagine a street with apartment buildings. Each building has a unique number assigned to it so that a building could be identified on the stree. Also, each apartment in a given building has a unique number so that it could be identified in that building. In this analogy, the building number is the IP and the apartment number is the port:
+
+| Networking Concept | Real-World Analogy | Purpose |
+|--------------------|--------------------|---------|
+| **IP Address** | Building address (e.g., 123 Main St.) | Identifies the destination device (building) on the network. |
+| **Port** | Apartment number (e.g., Apt. 12) | Identifies the specific application or service (apartment) within the device. |
+| **IP + Port** | Full address: 123 Main St., Apt. 12 | Identifies the exact communication endpoint (application on a device). |
+
+There can be a total of 65536 TCP ports and additional 65536 UDP ports (again, we will talk about them later).
+
+We need ports, because a single device might have multiple running applications, so if you want to target a specific application you would need to know a port to it. For example port 10,000 might be an endpoint to service that given 2 numbers outputs their sum, port 10,001 is a service that that deletes all your harddrive data (I hope you will not create a program like that...).
+
+With ports we have a way to reach running programs or services on a device, given that they have are listening (have opened) the corresponding ports.
+
+You might ask "what is an open port?".
+
+

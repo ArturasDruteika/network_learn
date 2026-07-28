@@ -53,6 +53,7 @@ Server code:
 
 
 constexpr int PORT = 8080;
+constexpr std::string_view HOST = "127.0.0.1";
 
 
 int main()
@@ -62,7 +63,9 @@ int main()
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
-    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    // Listen only on localhost
+    inet_pton(AF_INET, HOST.data(), &server_addr.sin_addr);
 
     bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
     listen(server_socket, 1);
@@ -180,9 +183,9 @@ Let's first analyze the server code, because without it, the concept of clients 
 Whether we will need these operations later, I do not know, but I still, I felt the need to write them down...
 
 
-#### IP and Port
+#### IP, Port and Socket
 
-Some of the biggest concepts in networking in general. I mean, without understanding these 2 meanings, going forward, at least in TCP networking, is going to be really hard. So, what do they mean?
+Some of the biggest concepts in networking in general. I mean, without understanding these 3 meanings, going forward, at least in TCP networking, is going to be really hard. So, what do they mean?
 
 **IP** - stands for Internet Protocol. Most of the connected devices to a network have at least 1 IP address.. Why do devices need it? 
 
@@ -242,6 +245,51 @@ We need ports, because a single device might have multiple running applications,
 
 With ports we have a way to reach running programs or services on a device, given that they have are listening (have opened) the corresponding ports.
 
-You might ask "what is an open port?".
+You might ask "what is an open port?". An open port is a network port which the running application is actively listening for incoming connections. An even simpler explanation is that a port becomes open when a program tells the OS that "I am listening on this port, send incoming connection to me".
+
+Another analogy is that if a house is an IP, then all the ways you can get inside that house are ports (front / back doors, windows, garage and etc.).
+
+```C++
+constexpr int PORT = 8080;
+constexpr std::string_view HOST = "127.0.0.1";
+```
+
+I decided to make them constants for this program, because during it's lifetime, these 2 values are not going to change.
 
 
+The last concept that is the integral part in a lot of networking is socket.
+
+**Socket** is an object create by the OS that represents one endpoint of a network connection. When I first read this definition, I still was not able to understand the meaning of a socket, but once I read a telephone example I clearly got it. To be honest, this will be a telephone + apartment building example.
+
+The idea is this. Imagine that there are N apartment buildings with M apartments in each building. The are people living in apartments. So each person can be identified with a building ID (street name + building nr.) and an apartment number. There is a special telephone made for these buildings, where instead of normal numbers, you just enter the building ID and an apartment number. So if a person A, that is living in a building 10 and apartment 5, wants to call a person B that is living in building 4 and apartment 17, then the person A will have to dial 4.17 number into his phone. Person B sees that a number 10.5 is calling and answers the phone. This way people can call each other that live in these buildings.
+
+In this example:
+
+| Networking Concept | Apartment Analogy |
+| ------------------ | ----------------- |
+| **IP Address** | The **building ID** (street + building number). Identifies which building the communication should be delivered to. |
+| **Port** | The **apartment number**. Identifies which apartment (application) inside the building should receive the communication. |
+| **Socket** | The **telephone inside the apartment**. It is the communication endpoint used to make and receive calls (network messages). |
+| **Application** | The **person living in the apartment**. The application processes the received data and generates responses. |
+
+The communication flow can be visualized as:
+
+```text
+Person A
+(Building 10, Apartment 5)
+        │
+    Telephone (Socket)
+        │
+        ▼
+     Dial 4.17
+        │
+        ▼
+Building 4 (IP Address)
+        │
+Apartment 17 (Port)
+        │
+Telephone (Socket)
+        │
+        ▼
+Person B (Application)
+```

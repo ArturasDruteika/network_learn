@@ -5,6 +5,7 @@
 
 
 constexpr int PORT = 8080;
+constexpr std::string_view HOST = "127.0.0.1";
 
 
 int main()
@@ -14,7 +15,9 @@ int main()
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
-    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    // Listen only on localhost
+    inet_pton(AF_INET, HOST.data(), &server_addr.sin_addr);
 
     bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
     listen(server_socket, 1);

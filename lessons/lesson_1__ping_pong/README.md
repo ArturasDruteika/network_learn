@@ -259,7 +259,7 @@ I decided to make them constants for this program, because during it's lifetime,
 
 The last concept that is the integral part in a lot of networking is socket.
 
-**Socket** is an object create by the OS that represents one endpoint of a network connection. When I first read this definition, I still was not able to understand the meaning of a socket, but once I read a telephone example I clearly got it. To be honest, this will be a telephone + apartment building example.
+**Socket** is an object created by the OS that represents one endpoint of a network connection. When I first read this definition, I still was not able to understand the meaning of a socket, but once I read a telephone example I clearly got it. To be honest, this will be a telephone + apartment building example.
 
 The idea is this. Imagine that there are N apartment buildings with M apartments in each building. The are people living in apartments. So each person can be identified with a building ID (street name + building nr.) and an apartment number. There is a special telephone made for these buildings, where instead of normal numbers, you just enter the building ID and an apartment number. So if a person A, that is living in a building 10 and apartment 5, wants to call a person B that is living in building 4 and apartment 17, then the person A will have to dial 4.17 number into his phone. Person B sees that a number 10.5 is calling and answers the phone. This way people can call each other that live in these buildings.
 
@@ -268,7 +268,7 @@ In this example:
 | Networking Concept | Apartment Analogy |
 | ------------------ | ----------------- |
 | **IP Address** | The **building ID** (street + building number). Identifies which building the communication should be delivered to. |
-| **Port** | The **apartment number**. Identifies which apartment (application) inside the building should receive the communication. |
+| **Port** | The **apartment number**. Identifies which apartment (application (in this example a person)) inside the building should receive the communication. |
 | **Socket** | The **telephone inside the apartment**. It is the communication endpoint used to make and receive calls (network messages). |
 | **Application** | The **person living in the apartment**. The application processes the received data and generates responses. |
 
@@ -293,3 +293,28 @@ Telephone (Socket)
         ▼
 Person B (Application)
 ```
+
+Now we know what all 3 major concepts mean in TCP networking. But just to glide by it one more time:
+
+| Networking Concept | Meaning |
+| ------------------ | ------- |
+| **IP Address** | A unique 32-bit number assigned to a device on an IPv4 network. It identifies the destination device for network communication. |
+| **Port** | A 16-bit number (0–65535) that identifies a specific application or service running on a device. A port is considered **open** when an application is actively listening on it. |
+| **Socket** | An operating system object that represents one endpoint of a network communication channel. Applications use sockets to send and receive network data. |
+
+Socket is created using this:
+
+```C++
+int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+```
+
+Notice that the `server_socket` is an integer. It is because this function returns a descriptor that is essentially an ID to an actual object created somewhere else. For those that have read my opengl lessons, it is very similar to the way that many OpenGL objects or functions are accessable via the integer ID because that ID refers to that to that specific object that is managed internally by OpenGL. Same is here with a `server_socket` that is an ID to an actual object managet internally by OS.
+
+`AF_INET` tells that we want a socket that is of type IPv4. Remember that there is also IPv6.
+
+`SOCK_STREAM` tells that we want a TCP type of communication. Remember that there is also UDP (also, we will talk about it in later lessons).
+
+`0` tells which protocol to use. A protocol is a simple set of rules that 2 devices agree to use when communicating. Different protocols define different rules. For TCP connection we almost always use `0`.
+
+
+

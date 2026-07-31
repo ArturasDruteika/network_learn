@@ -317,4 +317,69 @@ Notice that the `server_socket` is an integer. It is because this function retur
 `0` tells which protocol to use. A protocol is a simple set of rules that 2 devices agree to use when communicating. Different protocols define different rules. For TCP connection we almost always use `0`.
 
 
+#### Server Logic
 
+```C++
+sockaddr_in server_addr{};
+server_addr.sin_family = AF_INET;
+server_addr.sin_port = htons(PORT);
+```
+
+These lines create a C (language) struct that essentially stores and IPv4 socket address. `sockaddr_in server_addr{};` initializes this struct to default values. `server_addr.sin_family = AF_INET;` tells that this socket address should be IPv4.
+
+`server_addr.sin_port = htons(PORT);` this sets the socket address port. But what does `htons()` do?
+
+`htons()` means **Host TO Network Short**. This function converts 16-bit integer (in C++ it is of type `short`) to a network byte order. Why can't we do simply `server_addr.sin_port = PORT;`? It all comes down to a to this concept of little-endian and big-endian. You can read about this concept [here](https://saliktariq.medium.com/big-endian-and-little-endian-systems-in-c-significance-code-differences-and-performance-487752a20496). In short, the idea behind it is that most of the computers nowadays store bytes using the little-endian format, while network protocols use big-endian format. Why network protocols use big-endian? It was also a design choice in the beginning of network programming. Just know that network protocols use little-endian when defining a port.
+
+These 3 lines are pretty clear what they mean now, but I still had one question when learning this. What is the `sin` prefix in `sin_family` and `sin_port`? I do not know why they needed to add this prefix in the first place, but in is the abbreviation of **socket internet**.
+
+`inet_pton(AF_INET, HOST.data(), &server_addr.sin_addr);` this line converts the human readable IP address into the binary format that the OS could understand. So basically this:
+
+```C++
+"127.0.0.1"
+```
+
+is converted into:
+
+```C++
+01111111 00000000 00000000 00000001
+```
+
+and we assign the convertes result to `server_addr.sin_addr` variable. `AF_INET` tells that this address should be converted to IPv4 format.
+
+
+#### Binding and Listening
+
+```C++
+bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
+listen(server_socket, 1);
+```
+
+Before I give you the explanation on what are binding and listening concepts and why do we need them, I will take a step back and ask you: what do we have now?
+
+Right now we have a socket descriptor `server_socket` that is just a simple number and `server_addr` struct that is containing necessary configuration information for our socket. The problem is that these 2 variable are not "connected" to each other. As of now we have a ssocket and a configuration as 2 separate things.
+
+Now, our current socket looks like this:
+
+```
+--------------
+|            |
+| TCP socket |
+| No address |
+|            |
+-------------
+```
+
+What we want is this:
+
+```
+-----------------
+|               |
+| TCP socket    |
+| IP: 127.0.0.1 |
+| Port: 8080    |
+|               |
+-----------------
+```
+
+What `bind()` does is exactly this. It associates the created socket with a defined IP address and port.

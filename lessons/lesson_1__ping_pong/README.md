@@ -333,7 +333,11 @@ These lines create a C (language) struct that essentially stores and IPv4 socket
 
 These 3 lines are pretty clear what they mean now, but I still had one question when learning this. What is the `sin` prefix in `sin_family` and `sin_port`? I do not know why they needed to add this prefix in the first place, but in is the abbreviation of **socket internet**.
 
-`inet_pton(AF_INET, HOST.data(), &server_addr.sin_addr);` this line converts the human readable IP address into the binary format that the OS could understand. So basically this:
+```C++
+inet_pton(AF_INET, HOST.data(), &server_addr.sin_addr);
+```
+
+This line converts the human readable IP address into the binary format that the OS could understand. So basically this:
 
 ```C++
 "127.0.0.1"
@@ -348,16 +352,15 @@ is converted into:
 and we assign the convertes result to `server_addr.sin_addr` variable. `AF_INET` tells that this address should be converted to IPv4 format.
 
 
-#### Binding and Listening
+#### Binding
 
 ```C++
 bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
-listen(server_socket, 1);
 ```
 
-Before I give you the explanation on what are binding and listening concepts and why do we need them, I will take a step back and ask you: what do we have now?
+Before I give you the explanation on what is binding, I will take a step back and ask you: what do we have now?
 
-Right now we have a socket descriptor `server_socket` that is just a simple number and `server_addr` struct that is containing necessary configuration information for our socket. The problem is that these 2 variable are not "connected" to each other. As of now we have a ssocket and a configuration as 2 separate things.
+Right now we have a socket descriptor `server_socket` that is just a simple number and `server_addr` struct that is containing necessary configuration information for our socket. The problem is that these 2 variables are not "connected" to each other. As of now we have a socket and a configuration as 2 separate things.
 
 Now, our current socket looks like this:
 
@@ -382,4 +385,57 @@ What we want is this:
 -----------------
 ```
 
-What `bind()` does is exactly this. It associates the created socket with a defined IP address and port.
+What `bind()` does is exactly this. It associates the created socket with a defined IP address and a port. It kind of connects `server_addr` info with `server_socket`.
+
+I remember that when I was learning this I had this question: "Why `socket(AF_INET, SOCK_STREAM, 0);` functionality does not allow setting port and ip to the created socket descriptor?". The idea is that because with this line:
+
+```C++
+int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+```
+
+a socket is created that only knows 3 things:
+
+* Address family: IPv4 (AF_INET)
+* Type: TCP (SOCK_STREAM)
+* Protocol: TCP
+
+These 3 things are stored somewhere as a single separate concept managed by OS. More precisely OS creates a kernel object that knows only those 3 aforementioned things. You only have a single descriptor ID that associates it with a real kernel object (I will explain what a kernel is soon). But this:
+
+```C++
+sockaddr_in server_addr{};
+server_addr.sin_family = AF_INET;
+server_addr.sin_port = htons(PORT);
+```
+
+is a different concept, that deals with ports and IPs. You combine them with `bind()` to tell the OS to "Associate this with this.", and that's it. Do not overthink too much about this.
+
+Up to this point we have a proper set up socket that is ready to be used. Let's learn how to use it.
+
+
+#### Listening
+
+```C++
+listen(server_socket, 1);
+```
+
+This line tells to OS that this socket `server_socket` is a server socket and because of it, start listening for incoming connections. 
+
+Before this line was called, our socket was just a simple TCP endpoint. But this endopoint still does not have a purposeful reason on why it exists. `listen()` is the function that makes our socket capable of listening for incoming clients, meaning that now, our socket is has a purpose. 
+
+This funciton does not create a separate thread or repeatedly check for connection. It tells the kernel that if a new connections arrives on this socket, queue them until my program processes them further.
+
+The kernel object is the real heavy lifter here, because it internally does all of the work like:
+
+* receiving TCP SYN packets (will talk more about them in the future lessons)
+* completing the TCP handshake
+* maintaining a queue of pending connecitons
+
+Our server program does not have to think about these operations, that is why it is great that we have only a descriptor, you do not have to think about all the under the hood stuff.
+
+What does 1 mean? It is a simple backlog essentially telling how many connections are pending. If it is set to 1, then there can only be a single pending connection. Any more clients trying to connect are not guaranteed to succeed. The outcome depends on the OS and how the TCP is set up on that OS. Any more connections than the backlog might:
+
+* timeout
+* connection might be refused
+* the client may retry automatically
+
+all of these and others are possible, but it is the OS that decides what's going to happen next with that connection.

@@ -5,7 +5,7 @@
 
 
 constexpr int PORT = 8080;
-constexpr std::string_view HOST = "127.0.0.1";
+constexpr std::string_view IP = "127.0.0.1";
 
 
 int main()
@@ -17,7 +17,7 @@ int main()
     server_addr.sin_port = htons(PORT);
 
     // Listen only on localhost
-    inet_pton(AF_INET, HOST.data(), &server_addr.sin_addr);
+    inet_pton(AF_INET, IP.data(), &server_addr.sin_addr);
 
     bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
     listen(server_socket, 1);

@@ -439,3 +439,43 @@ What does 1 mean? It is a simple backlog essentially telling how many connection
 * the client may retry automatically
 
 all of these and others are possible, but it is the OS that decides what's going to happen next with that connection.
+
+Also, notice one thing, `listen()` is not a blocking operation, meaning that the code following this function will be executed right after this function completes it's job. This function completes the job really fast, because it essentially is just a call to the kernel object "put this socket into a listening mode".
+
+
+#### Accepting a client
+
+```C++
+sockaddr_in client_addr{};
+socklen_t client_len = sizeof(client_addr);
+
+int client_socket = accept(server_socket, (sockaddr*)&client_addr, &client_len);
+```
+
+In order to accept a client we first need create an uninitialized `sockaddr_in` struct. Remember that this struct stores IP address (IPv4 or IPv6) and port (everything that we need to know about the client). We need this struct to store information about connected client.
+
+Before accept, `client_address` looks like this:
+
+* IP Address: -
+* Port: -
+
+After the `accept()` the `client_address` might look like this:
+
+* IP Address: XXX.XXX.XXX.XXX (remember, that this is actually a 32bit number)
+* Port: XXXXX
+
+
+```C++
+socklen_t client_len = sizeof(client_addr);
+```
+
+This line, at first, I did not understand. This line tells to the kernel that the buffer size of the `client_addr` is `sizeof(client_addr)`. In C++, `sizeof()` returns the size of an object or a struct in bytes.
+
+We need to know the size because of the way we use `client_addr` in `accept()` function. We need to know the size of this buffer so that the kernel would know how much information it should write into this buffer. 
+
+
+```C++
+int client_socket = accept(server_socket, (sockaddr*)&client_addr, &client_len);
+```
+
+<!-- First of all, th -->

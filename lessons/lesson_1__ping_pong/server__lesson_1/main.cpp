@@ -30,7 +30,6 @@ int main()
     int client_socket = accept(server_socket, (sockaddr*)&client_addr, &client_len);
 
     char buffer[1024]{};
-
     recv(client_socket, buffer, sizeof(buffer), 0);
 
     spdlog::info("Received: {}", buffer);

@@ -469,13 +469,84 @@ After the `accept()` the `client_address` might look like this:
 socklen_t client_len = sizeof(client_addr);
 ```
 
-This line, at first, I did not understand. This line tells to the kernel that the buffer size of the `client_addr` is `sizeof(client_addr)`. In C++, `sizeof()` returns the size of an object or a struct in bytes.
+This line, at first, I did not understand. This line tells to the kernel that the buffer size of the `client_addr` is `sizeof(client_addr)`. In C++, `sizeof()` returns the size of an object or a struct in bytes. We need to know the size because of the way we use `client_addr` in `accept()` function. This is because `accept()` receives a pointer to the client buffer and pointers do not bring with themselves information about the size.
 
-We need to know the size because of the way we use `client_addr` in `accept()` function. We need to know the size of this buffer so that the kernel would know how much information it should write into this buffer. 
+I also had a question: "Why do we need to pass the size, when we can just have this function: `int accept(int sockfd, sockaddr_in* addr);`?". After some additional reading I understood that this is because mainly of 2 reasons:
 
+1) When sockets were desgined, the idea was that there should be a single function that can take any information about incoming clients. Meaning that the client could be using Ipv4 or Ipv6 (in old times people did not think abput Ipv6). Socket API was designed in such way to support many addresses families. There can be many different client configurations that use IPv4, IPv6, Unix sockets, raw ethernet.
+2) Because the sockets are written in C language, they have one drawback: functions in C cannot be overloaded. Meaning a function with a name X cannot be overloaded with different signatures like different arguments cound, or different return type.
+
+If both of these were designed a bit different, maybe then you could have this:
+
+* `int accept(int sockfd, sockaddr_in* addr);` 
+* `int accept(int sockfd, sockaddr_in6* addr);` 
+* `int accept(int sockfd, sockaddr_un* addr);` 
+* `int accept(int sockfd, sockaddr_ll* addr);`
+
+
+I hope that I gave you a proper explanation about why sockets need to know the sizes. Now let's move towards accepting the client.
 
 ```C++
 int client_socket = accept(server_socket, (sockaddr*)&client_addr, &client_len);
 ```
 
-<!-- First of all, th -->
+This is the place that essentially is telling the kernel to wait for the client connection. This is the first blocking operation of our program, meaning that until a client will try to connect to this server, any code below this line is not going to be executed.
+
+How does it work. Well, first, let's look at the arguments:
+
+* `server_socket` tells which socket to use for listening (which kernel program to use).
+* `(sockaddr*)&client_addr` a pointer to the client address. Once the connection comes, all the information about the client will be stored in this variable.
+* `&client_len` as mentioned before, we need to know the size of the incoming client to correctly populate the client address buffer.
+
+Notice, that `accept()` returns another socket descriptor. This time, this socket descriptor `client_socket` is representing a client. So now, we have 2 different sockets:
+
+1. `server_socket` representing the server side
+2. `client_socket` representing the client side
+
+If we went back to the street and apartment buildings communication analogy, we would be at a place where a server (a person living in an apartment that is set up as a server) is listening through a phone for any connections, and if it hears any client it accepts and processes it. 
+
+The final question I have about `listen()` and `accept()` was: "In general, what is the difference between these 2?". To put it simply, `listen()` tells to the kernel: "hey, start listening, do not think about what to do if a client tries to connect, but just listen". While 'accept()` is the place where you actually start dealing with a client, once the client (or anything else) tries to connect. This is one of the reasons why `accept()` is blocking. The application is waiting (listening) until anything tries to connect.
+
+To put it short:
+
+```
+------------
+|          |
+| listen() |  --> start listening, but do not do anything else
+|          |
+------------
+
+------------
+|          |
+| accept() |  --> if anyone tries to connect, start processing
+|          |
+------------
+
+```
+
+
+#### Dealing with a Client
+
+We started listening, and are waiting for anyone to connect. Let's see what we do after someone tries to connect.
+
+```C++
+char buffer[1024]{};
+recv(client_socket, buffer, sizeof(buffer), 0);
+```
+
+This is how we "process" the client once it connects. 
+
+Initially we need to create a buffer that could store the information the client sends. We create an emtpy buffer (by using default initialization `{}`) that at first looks like this:
+
+```
+buffer
++----+----+----+----+-----+
+|  0 |  0 |  0 |  0 | ... |
++----+----+----+----+-----+
+```
+
+Then we call `recv()`. Since we have a client socket's descriptor, we use it to tell the kernel "read data from this connected socket". That is, essentially, what the `recv()` does.
+
+
+
+

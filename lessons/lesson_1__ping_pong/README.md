@@ -547,6 +547,57 @@ buffer
 
 Then we call `recv()`. Since we have a client socket's descriptor, we use it to tell the kernel "read data from this connected socket". That is, essentially, what the `recv()` does.
 
+We store that read data into `buffer` object.
+
+I noticed (at least for myself) that before moving any further, I think that right now the best thing to do, would be to analize how sockets work internally. So let's understand them properly before we move forward.
 
 
+### Sockets (Intuition)
 
+Let's get back to sockets, kernels and everything else related to this topic. At first, I think that we should analyze the kernel: what is it? 
+
+The computer is organized something like this:
+
+```
+┌───────────────────────────────────────┐
+│              User space               │
+│                                       │
+│  Chrome     Calculator   Your C++ app │
+│                                       │
+├───────────────────────────────────────┤
+│                KERNEL                 │
+│                                       │
+│  Processes        Filesystem          │
+│  Memory           TCP/IP networking   │
+│  Drivers          Sockets             │
+│                                       │
+├───────────────────────────────────────┤
+│              Hardware                 │
+│                                       │
+│  CPU     RAM     SSD     Network card │
+└───────────────────────────────────────┘
+```
+
+You can kind of divide it into 3 parts, where each part is going deeper to the actual electricity, transistors and capacitors.
+
+
+#### User Space
+
+This is the top level of computer. You can think of this space a virtual world. Nothing in this space is material. I do not know if it works, but you can think about this space as a consciousness. 
+
+All the applications work here. You open a file explorer, calculator, internet browser, calendar, paly games and etc. This level exists so that users could easily use the computer without the need to know how a computer works in depth. I mean if you open a calculator app, and if you want to add 2 numbers together, I think that you do not need to know how computer works , you only want the output, the sum of 2 numbers. Same with video games. In order to play them, no knowledge of computer "anatomy" is needed.
+
+#### Hardware Space
+
+This is where the actual bones, muscles and nerves of the computer live. This is the "real" material part of the computer. CPU, GPU, USB driver, network driver, transistors, capacitors, inductors and etc. They all comprise a single unit, a computer. Internally these components communicate with themselves using electrical signals. 
+
+If you use that same calculator app and do the same addition of 2 numbers, in this space it looks more of electrical signals going from one component to another, that's it. And how these signals move, what comunicates with what is a total mystery for everyday users if you do not specialize in this field.
+
+
+#### Kernel Space
+
+We have a user space and a hardware space, but we do not have an interediate level which would allow for the communication between these 2.
+
+Here comes the kernel space. Even until now, it is kind of hard for me to find ways to describe what kernels are
+
+I will start with an example. 

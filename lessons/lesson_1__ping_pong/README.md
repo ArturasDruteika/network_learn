@@ -583,11 +583,23 @@ You can kind of divide it into 3 parts, where each part is going deeper to the a
 
 #### User Space
 
+This is where the ordinary and every day programs live. Your browser, calculator, video games, video editors and etc. These programs can use CPU, GPU, RAM but in this space programs do not have an unrestricted access to all the aforementioned things. The main 2 reasons why user space exists are:
+
+1. To let users easily and freely use the computer without the need to know how computers work internally.
+2. The major reason is to isolate and protect the hardware from potential malicious or buggy programs.
+
+The essence of both of these points is that computers are meant to be used by users the same way as cars are meant to be used by drivers. A driver (while driving) is not needed to have full knowledge of how the engine, oil system or a generator works. Also, a driver (while driving) should not be able to magically access the engine and somehow try to deliberately or accidently break it. 
+
+Literally the same ideas applies to the computers. You, your parents or friends do not need to know how computers work in detail in order to play video games or watch videos on the computer. Also, if you are using a program, it should not be able to literally destroy your hardware because it had a bug, or if it was a malware.
+
+
+<!-- #### User Space
+
 This is the top level of computer. You can think of this space a virtual world. Nothing in this space is material. I do not know if it works, but you can think about this space as a consciousness. 
 
 All the applications work here. You open a file explorer, calculator, internet browser, calendar, paly games and etc. This level exists so that users could easily use the computer without the need to know how a computer works in depth. I mean if you open a calculator app, and if you want to add 2 numbers together, I think that you do not need to know how computer works , you only want the output, the sum of 2 numbers. Same with video games. In order to play them, no knowledge of computer "anatomy" is needed.
 
-#### Hardware Space
+#### Hardware
 
 This is where the actual bones, muscles and nerves of the computer live. This is the "real" material part of the computer. CPU, GPU, USB driver, network driver, transistors, capacitors, inductors and etc. They all comprise a single unit, a computer. Internally these components communicate with themselves using electrical signals. 
 
@@ -600,4 +612,4 @@ We have a user space and a hardware space, but we do not have an interediate lev
 
 Here comes the kernel space. Even until now, it is kind of hard for me to find ways to describe what kernels are
 
-I will start with an example. 
+I will start with an example. If the user space is your conscience and if hardware is the muscles, blood,  -->

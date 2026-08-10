@@ -593,23 +593,34 @@ The essence of both of these points is that computers are meant to be used by us
 Literally the same ideas applies to the computers. You, your parents or friends do not need to know how computers work in detail in order to play video games or watch videos on the computer. Also, if you are using a program, it should not be able to literally destroy your hardware because it had a bug, or if it was a malware.
 
 
-<!-- #### User Space
-
-This is the top level of computer. You can think of this space a virtual world. Nothing in this space is material. I do not know if it works, but you can think about this space as a consciousness. 
-
-All the applications work here. You open a file explorer, calculator, internet browser, calendar, paly games and etc. This level exists so that users could easily use the computer without the need to know how a computer works in depth. I mean if you open a calculator app, and if you want to add 2 numbers together, I think that you do not need to know how computer works , you only want the output, the sum of 2 numbers. Same with video games. In order to play them, no knowledge of computer "anatomy" is needed.
-
 #### Hardware
 
-This is where the actual bones, muscles and nerves of the computer live. This is the "real" material part of the computer. CPU, GPU, USB driver, network driver, transistors, capacitors, inductors and etc. They all comprise a single unit, a computer. Internally these components communicate with themselves using electrical signals. 
+This is the physical part of the computer. CPU, GPU, keyboard, mouse, USB port, HDMI port, SSD card, RAM, motherboard, bits. 
 
-If you use that same calculator app and do the same addition of 2 numbers, in this space it looks more of electrical signals going from one component to another, that's it. And how these signals move, what comunicates with what is a total mystery for everyday users if you do not specialize in this field.
+If we went even deeper, you would see transistors, capacitors, inductors wires and etc.. All of the applications people use every day in the end are just electrical signals and bit states. Everything software does ultimately results in hardware performing physical operations like applying electrical current to a transistor to change a state of a bit.
+
+In order to understand how sockets work, we do not need to go any deeper to understand how hardware works.
 
 
 #### Kernel Space
 
-We have a user space and a hardware space, but we do not have an interediate level which would allow for the communication between these 2.
+I think that one of the ways to understand what this is, we have to start with an analogy.
 
-Here comes the kernel space. Even until now, it is kind of hard for me to find ways to describe what kernels are
+Think of the whole computer as a human body. The hardware is the physical body:
 
-I will start with an example. If the user space is your conscience and if hardware is the muscles, blood,  -->
+```
+eyes                ->      monitor
+ears                ->      speakers
+hands               ->      keyboard / mouse
+short-term memory   ->      RAM
+long-term memory    ->      SSD
+nervous system      ->      buses / electrical connections
+```
+
+Now, imagine your thoughts or your conscience as programs (applications).
+
+You probably would not want every random thought to have unrestricted control over your body. A thought existing in your mind does not mean that it will automatically make your body execute it. There are systems in place between your mind and body that controls what thoughts are executed and which are not. 
+
+The same logic applies to applications. Imagine if you had a buggy calculator, that would for some reason make your CPU overheat and literally melt. That would make a lot of computers often go out of commission due to buggy or malicious applications. Or that a video game would literally have an unrestricted access to all of you RAM. In this scenario the game could accidentaly override bits in RAM that literally control the state of your computer and, for example, make your computer turn off, or delete some vital computer memory data.
+
+The brain is the connector between the conscience and the body. You can think kind of the same about the kernel.  This is where the operating system, particulary the kernel comes into play. It is that missing piece between the applications and the hardware that controls what applications can and cannot do.

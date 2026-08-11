@@ -623,4 +623,38 @@ You probably would not want every random thought to have unrestricted control ov
 
 The same logic applies to applications. Imagine if you had a buggy calculator, that would for some reason make your CPU overheat and literally melt. That would make a lot of computers often go out of commission due to buggy or malicious applications. Or that a video game would literally have an unrestricted access to all of you RAM. In this scenario the game could accidentaly override bits in RAM that literally control the state of your computer and, for example, make your computer turn off, or delete some vital computer memory data.
 
-The brain is the connector between the conscience and the body. You can think kind of the same about the kernel.  This is where the operating system, particulary the kernel comes into play. It is that missing piece between the applications and the hardware that controls what applications can and cannot do.
+The brain is the connector between the conscience and the body. You can think kind of the same about the kernel. You can loosely think of the kernel as part of the brain and nervous system connecting the applications to the physical resources of the computer. Kernel managers and protects important resources such as memory, files, processes, networking and hardware devices.
+
+An important thing to know is that when the application is running, not every operation requires the kernel to be called for help. Most of the application can be executed by the CPU itself, because most of the code probobly does not require privilged access to OS resources. 
+
+Now, once I read about this, my initial thoughts were: "What is the priviledged access? How to know what is privileged and what is not? So when exactly is the kernel needed and when it's not?" 
+
+
+#### Privileged Access
+
+First of all, a key thing to understand is that nothing in your application code can be executed freely without anyone's control. For example this code:
+
+```C++
+
+int main()
+{
+    int a = 5;
+    int b = 11;
+    int c = a + b;
+
+    return 0;
+}
+
+```
+
+if everything was executed without some sort of protection or control, one or more variables present in this program could crash or in any other way harm your computer. Why? Because here we have 3 INT type of variables. Ints are 32 bit. In memory, a single bit is the smallest physical unit of memory. Now imagine if you have some part of the memory that store bits vital to your computer performace. Anyone of the bits in this program could overwrite it and it could seriously harm your computer performance or even worse. This is why something has to control what your program does. 
+
+Remember how previously I said that all the operations performed by the application end up as pure hardware operations? That means that every operations your application performs directly change some hardware state (whether it is a single bit in RAM or anything else). This is where the privileged access come into play. You need to have it in order to change the state of the actual hardware elements. 
+
+As far as I know, there are 2 types of "access granters", or in other words, components that allow privileged access operations to be executed:
+
+* CPU
+* Kernel
+
+Both of them define their own privileged access rules, which literally tell what an application code can and cannot do.
+

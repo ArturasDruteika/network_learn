@@ -197,7 +197,7 @@ First of all, IP is just a simple number. It's format is this: XXX.XXX.XXX.XXX. 
 
 Computers do not think about IP addresses the same way we look at them. For computers, IP is a 32 bit number that is comprised of 0s and 1s. Again, for example, 192.168.1.1 IP address is for one device, 192.168.1.2 is for another device, 200.200.200.200 is for some other device. Because there are 32 bit, in total there are $2^{32} = 4,294,967,295$ different possible IP addresses. 
 
-You might ask "Why only something over 4.2 billion addresses, aren't there more unique devices now?". Well, the answer is yes, but in the 1970s, when computer networking was literally in the child stage, engineers thought that 32 bits will be enough for all the devices that will ever to be. Or they were like "we do not have time to think about it, let's leave for future generations to solve...". Just to make you feel safer, now, there is a 64 bit address, but we will talk about it in the later lessons.
+You might ask "Why only something over 4.2 billion addresses, aren't there more unique devices now?". Well, the answer is yes, but in the 1970s, when computer networking was literally in the child stage, engineers thought that 32 bits will be enough for all the devices that will ever to be. Or they were like "we do not have time to think about it, let's leave for future generations to solve...". Just to make you feel safer, now, there is a 128 bit address, but we will talk about it in the later lessons.
 
 Going back to the IP format. Remember how I said that computers see IP addresses in binary, let's see how it sees some random IP address:
 
@@ -329,7 +329,7 @@ These lines create a C (language) struct that essentially stores and IPv4 socket
 
 `server_addr.sin_port = htons(PORT);` this sets the socket address port. But what does `htons()` do?
 
-`htons()` means **Host TO Network Short**. This function converts 16-bit integer (in C++ it is of type `short`) to a network byte order. Why can't we do simply `server_addr.sin_port = PORT;`? It all comes down to a to this concept of little-endian and big-endian. You can read about this concept [here](https://saliktariq.medium.com/big-endian-and-little-endian-systems-in-c-significance-code-differences-and-performance-487752a20496). In short, the idea behind it is that most of the computers nowadays store bytes using the little-endian format, while network protocols use big-endian format. Why network protocols use big-endian? It was also a design choice in the beginning of network programming. Just know that network protocols use little-endian when defining a port.
+`htons()` means **Host TO Network Short**. This function converts 16-bit integer (in C++ it is of type `short`) to a network byte order. Why can't we do simply `server_addr.sin_port = PORT;`? It all comes down to a to this concept of little-endian and big-endian. You can read about this concept [here](https://saliktariq.medium.com/big-endian-and-little-endian-systems-in-c-significance-code-differences-and-performance-487752a20496). In short, the idea behind it is that most of the computers nowadays store bytes using the little-endian format, while network protocols use big-endian format. Why network protocols use big-endian? It was also a design choice in the beginning of network programming. Just know that network protocols use big-endian when defining a port.
 
 These 3 lines are pretty clear what they mean now, but I still had one question when learning this. What is the `sin` prefix in `sin_family` and `sin_port`? I do not know why they needed to add this prefix in the first place, but in is the abbreviation of **socket internet**.
 
@@ -583,14 +583,7 @@ You can kind of divide it into 3 parts, where each part is going deeper to the a
 
 #### User Space
 
-This is where the ordinary and every day programs live. Your browser, calculator, video games, video editors and etc. These programs can use CPU, GPU, RAM but in this space programs do not have an unrestricted access to all the aforementioned things. The main 2 reasons why user space exists are:
-
-1. To let users easily and freely use the computer without the need to know how computers work internally.
-2. The major reason is to isolate and protect the hardware from potential malicious or buggy programs.
-
-The essence of both of these points is that computers are meant to be used by users the same way as cars are meant to be used by drivers. A driver (while driving) is not needed to have full knowledge of how the engine, oil system or a generator works. Also, a driver (while driving) should not be able to magically access the engine and somehow try to deliberately or accidently break it. 
-
-Literally the same ideas applies to the computers. You, your parents or friends do not need to know how computers work in detail in order to play video games or watch videos on the computer. Also, if you are using a program, it should not be able to literally destroy your hardware because it had a bug, or if it was a malware.
+This is where the ordinary and every day programs live. Your browser, calculator, video games, video editors and etc. These programs can use CPU, GPU, RAM but in this space programs do not have an unrestricted access to all the aforementioned things. The main reason why user space exists is to isolate applications and programs to restrict them on what they can and cannot do so that they would not change or modify the protected parts of the system. More, about why the user space exits, will be explained later in this lesson.
 
 
 #### Hardware
@@ -621,9 +614,11 @@ Now, imagine your thoughts or your conscience as programs (applications).
 
 You probably would not want every random thought to have unrestricted control over your body. A thought existing in your mind does not mean that it will automatically make your body execute it. There are systems in place between your mind and body that controls what thoughts are executed and which are not. 
 
-The same logic applies to applications. Imagine if you had a buggy calculator, that would for some reason make your CPU overheat and literally melt. That would make a lot of computers often go out of commission due to buggy or malicious applications. Or that a video game would literally have an unrestricted access to all of you RAM. In this scenario the game could accidentaly override bits in RAM that literally control the state of your computer and, for example, make your computer turn off, or delete some vital computer memory data.
+The same logic applies to applications. Imagine if you had a buggy calculator, that would for some reason make your CPU overheat and literally melt. That would make a lot of computers often go out of commission due to buggy or malicious applications. Or imagine that a video game would literally have an unrestricted access to all of you RAM (or GPU RAM). In this scenario the game could accidentaly override bits in RAM that literally control the state of your computer (or the state of GPU) and, for example, make your computer turn off, or delete some vital computer memory data.
 
-The brain is the connector between the conscience and the body. You can think kind of the same about the kernel. You can loosely think of the kernel as part of the brain and nervous system connecting the applications to the physical resources of the computer. Kernel managers and protects important resources such as memory, files, processes, networking and hardware devices.
+Because of the reasons like this modern OS and CPU therefore provides mechanisms that isolate applications from one another and help protect important parts of the system.
+
+Like the brain is the connector between the conscience and the body, you also can think kind of the same about the kernel. You can loosely think of the kernel as part of the brain and nervous system connecting the applications to the physical resources of the computer. Kernel managers and protects important resources such as memory, files, processes, networking and hardware devices.
 
 An important thing to know is that when the application is running, not every operation requires the kernel to be called for help. Most of the application can be executed by the CPU itself, because most of the code probobly does not require privilged access to OS resources. 
 
@@ -647,14 +642,22 @@ int main()
 
 ```
 
-if everything was executed without some sort of protection or control, one or more variables present in this program could crash or in any other way harm your computer. Why? Because here we have 3 INT type of variables. Ints are 32 bit. In memory, a single bit is the smallest physical unit of memory. Now imagine if you have some part of the memory that store bits vital to your computer performace. Anyone of the bits in this program could overwrite it and it could seriously harm your computer performance or even worse. This is why something has to control what your program does. 
+if everything was executed without some sort of protection or control, one or more variables present in this program could crash or in any other way harm your computer. Why? Because here we have 3 INT type of variables. Ints are 32 bit. In memory, a single bit is the smallest physical unit of memory. Now imagine if you have some part of the memory that store bits vital to your computer performace. Any of the bits in this program could overwrite it and it could seriously harm your computer performance or even worse crash it. This is why something has to control what your program does. 
 
-Remember how previously I said that all the operations performed by the application end up as pure hardware operations? That means that every operations your application performs directly change some hardware state (whether it is a single bit in RAM or anything else). This is where the privileged access come into play. You need to have it in order to change the state of the actual hardware elements. 
+Remember how previously I said that all the operations performed by the application end up as pure hardware operations? That means that every operation your application performs directly changes some hardware state (whether it is a single bit in RAM or anything else). This is where the privileged access come into play. You need to have it in order to change the state of the actual hardware elements. 
 
-As far as I know, there are 2 types of "access granters", or in other words, components that allow privileged access operations to be executed:
+Once a program starts to get executed, it follows this path:
 
-* CPU
-* Kernel
+```
+                         CPU
+                          │
+              executes instructions from
+                          │
+             ┌────────────┴────────────┐
+             │                         │
+        Application                 Kernel
+             │                         │
+        USER MODE                KERNEL MODE
+```
 
-Both of them define their own privileged access rules, which literally tell what an application code can and cannot do.
-
+First thing to know is that all programs are executed using CPU. In CPU itself there are more steps like compilation, but again, read about that stuff on the internet.

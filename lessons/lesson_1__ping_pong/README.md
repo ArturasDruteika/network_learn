@@ -625,7 +625,7 @@ An important thing to know is that when the application is running, not every op
 Now, once I read about this, my initial thoughts were: "What is the priviledged access? How to know what is privileged and what is not? So when exactly is the kernel needed and when it's not?" 
 
 
-#### Privileged Access
+#### User Space Privileged Access
 
 First of all, a key thing to understand is that nothing in your application code can be executed freely without anyone's control. For example this code:
 
@@ -646,18 +646,108 @@ if everything was executed without some sort of protection or control, one or mo
 
 Remember how previously I said that all the operations performed by the application end up as pure hardware operations? That means that every operation your application performs directly changes some hardware state (whether it is a single bit in RAM or anything else). This is where the privileged access come into play. You need to have it in order to change the state of the actual hardware elements. 
 
-Once a program starts to get executed, it follows this path:
+To understnad better why priviliged rights are necessary, we first have to understand what path does a program take while it is being executed. Once a program starts to get executed, it follows this path:
 
 ```
-                         CPU
-                          │
-              executes instructions from
-                          │
-             ┌────────────┴────────────┐
-             │                         │
-        Application                 Kernel
-             │                         │
-        USER MODE                KERNEL MODE
+C++ program
+     │
+     ▼
+    CPU -----------------> Other hardware
+     │           |         (GPU, SSD, network card,
+     │           |         USB device, accelerator, etc.)
+     │           ▼                      |
+     │-----> does work <-----------------
+                 │
+                 │
+                 ▼    
+        Hardware operations     
+
 ```
 
-First thing to know is that all programs are executed using CPU. In CPU itself there are more steps like compilation, but again, read about that stuff on the internet.
+First thing to know is that all programs are executed using CPU. In CPU itself there are more steps like compilation, but again, the goal of this lesson is not to give an intuition on how C++ works itself, but rather how networking works and what parts of hardware are responsible for what and why.
+
+Every program starts by being executed by the CPU, but, for the aforementioned reasons (separation) not every program has the same amount of authority. This is one of the most important ideas for understanding priviliged rights and kernel.
+
+There are 2 execution modes with different priviliged rights levels:
+
+```
+CPU execution
+│
+├── User mode
+│   └── restricted privileges
+│
+└── Kernel mode
+    └── much higher privileges
+```
+
+The CPU can execude code at different privilege levels. Ordinary applications execute in user mode, where certain operations are restricted. The kernel executes in kernel mode, where it has access to privileged operations that user mode programs cannot directly perform.
+
+But, user mode still has some permissions:
+
+```
+User mode
+├── add numbers                  ✓
+├── modify CPU registers         ✓
+├── read its permitted memory    ✓
+├── write its permitted memory   ✓
+├── call functions               ✓
+├── execute branches             ✓
+│
+├── access kernel memory         ✗
+├── change page tables directly  ✗
+└── execute privileged CPU ops   ✗
+```
+
+At first, I kind of struggled with the idea that for some reason, some operations can be executed only in user mode, while others have to work in kernel mode? If kernel mode has stricter rules, then why doesn't all operation, no matter how simple they are, get executed in kernel mode?
+
+The reason is that CPUs have predefined permissions, like the ones seen in the above diagram. If we take our simple C++ addition example with 3 integers, even though each integer is stored in RAM, which indicates that a kernel has to do some job, the CPU can handle those operation itself, because CPUs are made this way.
+
+The CPU can safely allow the program to execute a simple addition. There is essentially no security benefit by doing this:
+
+```
+Program
+|
+| "Kernel, can I add 2 numbers?"
+|
+▼
+Kernel
+|
+| "Yes"
+|
+▼
+CPU performs addition
+```
+
+CPU itself is smart enough to know what it can and what it can't do. If for every operation we asked the help of the kernel, it would add enormous overhead while protecting nothing useful. 
+
+It is kind of like if before you ate anything, there was additional person that would constantly check what you can and what cannot eat. That is really inefficient, because you yourself can deduce what is safe and what is not to put inside your mouth. If, by any chance you encounter something suspicious or unknown, you can easily ask a specialist, if this is safe or not. The same way CPU knows what operations are safe to perform in user space and what need to directed to kernel space.
+
+To some this section up, you can think that CPU draws a sanbox around your application with operations that can be executed in user space. Anything that requires privileged rights is directed to kernel space:
+
+```
+                USER MODE
+
+     ┌──────────────────────────────┐
+     │       Your C++ process       │
+     │                              │
+     │  CPU registers      ✓        │
+     │  arithmetic         ✓        │
+     │  its memory         ✓        │
+     │  branches           ✓        │
+     │  function calls     ✓        │
+     │                              │
+     └──────────────────────────────┘
+                    │
+            cannot freely cross
+                    │
+       ─────────────┼─────────────
+                    │
+                    ▼
+
+     other processes' memory    ✗
+     kernel memory              ✗
+     arbitrary device control   ✗
+     privileged CPU operations  ✗
+```
+
+

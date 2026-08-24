@@ -751,3 +751,109 @@ To some this section up, you can think that CPU draws a sanbox around your appli
 ```
 
 
+#### Sockets and Kernel
+
+So why did I bother to write additional sections about user space, kernel space and privileged rights? As mentioned before, we need to build an intuition on what sockets are in kernel space and I think that now it is time when we have enough knowledge to understand it.
+
+A **socket** is not simply a C++ object or an integer in your application. The actual socket is an OS networking object managed by the kernel.
+
+Going back to the code part, we were creating a socket as this:
+
+```C++
+int server_fd = socket(...);
+```
+
+At first glance it is a bit misleading, because it creates this intuition:
+
+```
+C++ application
+|
+|
+-->int server_fd
+        |
+        --> socket
+```
+
+But this is not entirely and accurately what is happening. A better mental model is this:
+
+```
+            USER SPACE
+
+        Your C++ application
+       ┌───────────────────┐
+       │                   │
+       │     sock = 3      │
+       │        │          │
+       └────────┼──────────┘
+                │
+        descriptor / handle
+                │
+────────────────┼────────────────
+                │
+                ▼
+              KERNEL
+
+        ┌───────────────────┐
+        │   socket object   │
+        │                   │
+        │ protocol state    │
+        │ addresses         │
+        │ buffers           │
+        │ connection state  │
+        │ ...               │
+        └───────────────────┘
+```
+
+As mentioned before the interger that your program receives is not the socket itself, it is simply a file descriptor (a small identifier that lets a user to refer to the socket object itself).
+
+Actual socket objects live in a **network card**. 
+
+Netork card (also called NIC (Network Interface Card)) - is the piece of hardware that lets your computer physically communicate with a network.
+
+Because it is a physical object (hardware device), applications should not have access to directly control it, the kernel is responsible for managing access to it.
+
+This distinction and understanding is very important.
+
+Your application cannot simply take control of the network card and start transmitting arbitrary data through it whenever it wants to. As mentioned earlier, applications live in user space and have restricted priviliges, while the kernel manages the protected resources, such as network card.
+
+So when your application wants to use network, the basic relationship between your app and the hardware looks like this:
+
+```
+Application
+    │
+    │ "I want a socket"
+    ▼
+Kernel
+    │
+    │ creates/manages socket
+    ▼
+Application receives a way
+to refer to that socket
+```
+
+Later when your application wants to perform operations on the created socket, it asks the kernel again:
+
+```
+Your program
+    │
+    ├── socket()
+    ├── bind()
+    ├── listen()
+    ├── accept()
+    ├── connect()
+    ├── send()
+    ├── recv()
+    └── close()
+          │
+          ▼
+        Kernel
+          │
+          ▼
+   networking subsystem
+          │
+          ▼
+     network device
+```
+
+#### Why Should You Care About How Sockets Work in Kernel Space?
+

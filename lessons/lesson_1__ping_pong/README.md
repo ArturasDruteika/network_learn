@@ -806,7 +806,7 @@ But this is not entirely and accurately what is happening. A better mental model
 
 As mentioned before the interger that your program receives is not the socket itself, it is simply a file descriptor (a small identifier that lets a user to refer to the socket object itself).
 
-Actual socket objects live in a **network card**. 
+The socket object lives in kernel memory (RAM) as kernel-managed data structures. The **network card`` is hardware that ultimately sends and receives network traffic.
 
 Netork card (also called NIC (Network Interface Card)) - is the piece of hardware that lets your computer physically communicate with a network.
 
@@ -855,5 +855,48 @@ Your program
      network device
 ```
 
-#### Why Should You Care About How Sockets Work in Kernel Space?
+#### Conclusion for Sockets and Kernel
 
+Why Should You Care About How Sockets Work in Kernel Space?
+
+If you skipped the kernel side of the sockets, theoretically you could still continue with this lesson, but the problem of not understanding what sockets truly are would drastically slow down the learning for the later lessons.
+
+For example, questions like:
+* Why does socket() return an integer?
+* Why can recv() block my program?
+* Where does received data wait before my program reads it?
+* How can data arrive when my program isn't currently executing recv()?
+* Why does the operating system know which application should receive an incoming packet?
+* What exactly does close() destroy?
+* Why can multiple programs use the network at the same time?
+
+would be many times harder to explain without knwoing the kernel side of the sockets.
+
+Now, we can answer them, but also understand the answer itself:
+
+**Why does socket() return an integer?**
+
+Because this number represents a file descriptor. Conceptually, your application process has something like a table maintained with the help of the kernel:
+
+```
+Your C++ application process
+
+File descriptor table
+
+0 ----> standard input
+1 ----> standard output
+2 ----> standard error
+3 ----> socket
+4 ----> some file
+5 ----> another socket
+```
+
+When your program refers to the file descriptor with ID = 3, it means that particular open resource. The actual socket data structures are maintained by the kernel in kernel memory.
+
+Also, if we want go deeper (actually we should), we have to understand what are file descriptors and what are the first 3 members of that list:
+
+* standart input
+* standart output
+* standart error
+
+All of these 3 are standart I/O streams. On Unix-like systems, the OS sets them up so they are accessable through file descripts `0`, `1`, `2`. 

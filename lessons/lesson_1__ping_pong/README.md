@@ -870,11 +870,12 @@ For example, questions like:
 * What exactly does close() destroy?
 * Why can multiple programs use the network at the same time?
 
-would be many times harder to explain without knwoing the kernel side of the sockets.
+would be many times harder to explain without knowing the kernel side of the sockets.
 
-Now, we can answer them, but also understand the answer itself:
+Before answering these, the final thing we need to learn about in depth are file descriptors:
 
-**Why does socket() return an integer?**
+
+#### File Descriptors
 
 Because this number represents a file descriptor. Conceptually, your application process has something like a table maintained with the help of the kernel:
 
@@ -891,7 +892,7 @@ File descriptor table
 5 ----> another socket
 ```
 
-When your program refers to the file descriptor with ID = 3, it means that particular open resource. The actual socket data structures are maintained by the kernel in kernel memory.
+When your program refers to the file descriptor with ID = 3, it means that particular open resource. You can think of resource as something that your program can access/use through the OS which is entirely managed by the kernel. The actual socket data structures are maintained by the kernel in kernel memory.
 
 Also, if we want go deeper (actually we should), we have to understand what are file descriptors and what are the first 3 members of that list:
 
@@ -899,4 +900,117 @@ Also, if we want go deeper (actually we should), we have to understand what are 
 * standart output
 * standart error
 
-All of these 3 are standart I/O streams. On Unix-like systems, the OS sets them up so they are accessable through file descripts `0`, `1`, `2`. 
+All of these 3 are standart I/O streams. On Unix-like systems, the OS sets them up so they are accessable through file descripts `0`, `1`, `2`. Because these 3 file descriptors are resources, they are managed by the kernel.
+
+If we want to have an even deeper understanding of file descriptors, we have understand how to use these 3 default resources (aka. file descriptors).
+
+For a socket, we have this:
+
+```C++
+int socket_fd = socket(...);
+```
+
+For the 3 standart streams we already know what are their file descriptor values:
+
+```
+stdin  ----> 0
+stdout ----> 1
+stderr ----> 2
+```
+
+If you want to be an archaic cool person, you can use these 3 file descriptors like this:
+
+```C++
+#include <unistd.h>
+
+int main()
+{
+    const char message[] = "Hello!\n";
+
+    write(1, message, sizeof(message) - 1);
+}
+```
+
+Don't remember that `1` in `write(1, message, sizeof(message) - 1);` is a stdout FD.
+
+For these 3 FDs there are also symbolic constants already:
+
+```C++
+#include <unistd.h>
+
+int main()
+{
+    const char message[] = "Hello!\n";
+
+    write(STDOUT_FILENO, message, sizeof(message) - 1);
+}
+```
+
+where:
+
+```C++
+STDIN_FILENO  == 0
+STDOUT_FILENO == 1
+STDERR_FILENO == 2
+```
+
+using this we can directly write into error stream:
+
+```C++
+#include <unistd.h>
+
+int main()
+{
+    const char error[] = "Something went wrong!\n";
+
+    write(STDERR_FILENO, error, sizeof(error) - 1);
+}
+```
+
+And also we can read from file stream directly:
+
+```C++
+#include <unistd.h>
+
+int main()
+{
+    char buffer[100];
+
+    ssize_t bytes = read(STDIN_FILENO, buffer, sizeof(buffer));
+}
+```
+
+In the last example, did you notice something very similar to what we have already used? It's the part:
+
+```C++
+read(STDIN_FILENO, buffer, 100);
+```
+
+It looks just like:
+
+```C++
+read(socket_fd, buffer, 100);
+```
+
+By default FDs `0`, `1`, `2` are kernel managed objects that point to the terminal. You can change that by calling your program like this:
+
+```
+./program 0< input.txt      - reads input from file
+./program 1> output.txt     - outputs to a file
+./program 2> errors.txt     - redirects errors to a file
+```
+
+I hope that now, you understand what a file descriptor is. Just to elaborate on it again, a **file descriptor** is a integer that indentifies a resource which is managed by the kernel.
+
+
+#### Questions / Answers
+
+I said that we can answer these questions:
+
+* Why does socket() return an integer?
+* Why can recv() block my program?
+* Where does received data wait before my program reads it?
+* How can data arrive when my program isn't currently executing recv()?
+* Why does the operating system know which application should receive an incoming packet?
+* What exactly does close() destroy?
+* Why can multiple programs use the network at the same time?

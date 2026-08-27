@@ -432,7 +432,7 @@ The kernel object is the real heavy lifter here, because it internally does all 
 
 Our server program does not have to think about these operations, that is why it is great that we have only a descriptor, you do not have to think about all the under the hood stuff.
 
-What does 1 mean? It is a simple backlog essentially telling how many connections are pending. If it is set to 1, then there can only be a single pending connection. Any more clients trying to connect are not guaranteed to succeed. The outcome depends on the OS and how the TCP is set up on that OS. Any more connections than the backlog might:
+What does `1` mean? It is a simple backlog essentially telling how many connections are pending. If it is set to 1, then there can only be a single pending connection. Any more clients trying to connect are not guaranteed to succeed. The outcome depends on the OS and how the TCP is set up on that OS. Any more connections than the backlog might:
 
 * timeout
 * connection might be refused
@@ -1014,3 +1014,34 @@ I said that we can answer these questions:
 * Why does the operating system know which application should receive an incoming packet?
 * What exactly does close() destroy?
 * Why can multiple programs use the network at the same time?
+
+
+**Why does socket() return an integer?** Because this integer is an ID for a file descriptor which is a resource managed by the kernel.
+
+**Why can recv() block my program?** Suppose you did:
+
+```C++
+char buffer[1024];
+recv(socket, buffer, sizeof(buffer), 0);
+```
+
+but nothing has arrived yet. The kernel sees this:
+
+```
+[ empty ]
+```
+but we asked the kernel to receive something. the kernel cannot return something that isn't there, so it waits until some data arrives. With normal blocking sockets, when we encounter this operation, the kernel, essentially, puts the main thread (the one that manages our C++ application) to sleep, until data arrives.
+
+**Where does received data wait before my program reads it?** Received data lives in the kernel memory. Once you call:
+
+```C++
+recv(socket, buffer, sizeof(buffer), 0);
+```
+
+everything from the kernel memory is copied to the user space memory (aka. it is copied to `buffer`).
+
+**How can data arrive when my program isn't currently executing `recv()`?** This is, probobly, the hardest conceptual leap in terms of understanding sockets and kernel. Our program does not directly receive bytes from the NIC directly, OS does.
+
+NIC constantly is receiving bytes from the network, but it does not mean that our application is constantly getting those bytes. `recv()` does not mean "Start listening to the network right now", it is closer to "Give me the data the kernel is storing for this socket. If there is not any, wait according to the socket's blocking / nonblocking behavior (setup)".
+
+The previous question / answer helps us with this question also. Because the NIC is constantly receving traffic, some of that traffic will be dedicated to the IP:Port that we use, which means that that traffic (the bytes) are dedicated to our program. But because those received bytes live in the kernel memory and because our application, that is in user space, cannot directly access the kernel space, we have to call `recv()` for it.

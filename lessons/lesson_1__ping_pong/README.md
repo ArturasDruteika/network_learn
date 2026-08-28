@@ -644,7 +644,7 @@ int main()
 
 if everything was executed without some sort of protection or control, one or more variables present in this program could crash or in any other way harm your computer. Why? Because here we have 3 INT type of variables. Ints are 32 bit. In memory, a single bit is the smallest physical unit of memory. Now imagine if you have some part of the memory that store bits vital to your computer performace. Any of the bits in this program could overwrite it and it could seriously harm your computer performance or even worse crash it. This is why something has to control what your program does. 
 
-Remember how previously I said that all the operations performed by the application end up as pure hardware operations? That means that every operation your application performs directly changes some hardware state (whether it is a single bit in RAM or anything else). This is where the privileged access come into play. You need to have it in order to change the state of the actual hardware elements. 
+Remember how previously I said that all the operations performed by the application end up as pure hardware operations? Ultimately, software executes as CPU instructions and interacts with hardware state. However, this does not mean every hardware interaction requires kernel mode. User-mode programs can perform ordinary instructions and access their permitted memory directly. Certain operations—such as modifying page tables or directly controlling protected hardware—require privileged execution and therefore must be performed by the kernel.
 
 To understnad better why priviliged rights are necessary, we first have to understand what path does a program take while it is being executed. Once a program starts to get executed, it follows this path:
 
@@ -700,7 +700,7 @@ User mode
 
 At first, I kind of struggled with the idea that for some reason, some operations can be executed only in user mode, while others have to work in kernel mode? If kernel mode has stricter rules, then why doesn't all operation, no matter how simple they are, get executed in kernel mode?
 
-The reason is that CPUs have predefined permissions, like the ones seen in the above diagram. If we take our simple C++ addition example with 3 integers, even though each integer is stored in RAM, which indicates that a kernel has to do some job, the CPU can handle those operation itself, because CPUs are made this way.
+The reason is that CPUs have predefined permissions, like the ones seen in the above diagram. If we take our simple C++ addition example with 3 integers, even though the variables are stored in memory, accessing them does not normally require entering kernel mode. The CPU executes the program in user mode and is allowed to access memory that belongs to the process. Hardware mechanisms such as virtual memory and the MMU enforce which memory the process is allowed to access.
 
 The CPU can safely allow the program to execute a simple addition. There is essentially no security benefit by doing this:
 
@@ -718,7 +718,7 @@ Kernel
 CPU performs addition
 ```
 
-CPU itself is smart enough to know what it can and what it can't do. If for every operation we asked the help of the kernel, it would add enormous overhead while protecting nothing useful. 
+The CPU provides hardware-enforced privilege levels. While executing in user mode, certain instructions and memory regions are inaccessible. The OS configures much of this protection, and the CPU enforces it while executing the program. If for every operation we asked the help of the kernel, it would add enormous overhead while protecting nothing useful. 
 
 It is kind of like if before you ate anything, there was additional person that would constantly check what you can and what cannot eat. That is really inefficient, because you yourself can deduce what is safe and what is not to put inside your mouth. If, by any chance you encounter something suspicious or unknown, you can easily ask a specialist, if this is safe or not. The same way CPU knows what operations are safe to perform in user space and what need to directed to kernel space.
 
@@ -862,13 +862,13 @@ Why Should You Care About How Sockets Work in Kernel Space?
 If you skipped the kernel side of the sockets, theoretically you could still continue with this lesson, but the problem of not understanding what sockets truly are would drastically slow down the learning for the later lessons.
 
 For example, questions like:
-* Why does socket() return an integer?
-* Why can recv() block my program?
-* Where does received data wait before my program reads it?
-* How can data arrive when my program isn't currently executing recv()?
-* Why does the operating system know which application should receive an incoming packet?
-* What exactly does close() destroy?
-* Why can multiple programs use the network at the same time?
+1) Why does socket() return an integer?
+2) Why can recv() block my program?
+3) Where does received data wait before my program reads it?
+4) How can data arrive when my program isn't currently executing recv()?
+5) Why does the operating system know which application should receive an incoming packet?
+6) What exactly does close() destroy?
+7) Why can multiple programs use the network at the same time?
 
 would be many times harder to explain without knowing the kernel side of the sockets.
 
@@ -1006,19 +1006,18 @@ I hope that now, you understand what a file descriptor is. Just to elaborate on 
 #### Questions / Answers
 
 I said that we can answer these questions:
+1) Why does socket() return an integer?
+2) Why can recv() block my program?
+3) Where does received data wait before my program reads it?
+4) How can data arrive when my program isn't currently executing recv()?
+5) Why does the operating system know which application should receive an incoming packet?
+6) What exactly does close() destroy?
+7) Why can multiple programs use the network at the same time?
 
-* Why does socket() return an integer?
-* Why can recv() block my program?
-* Where does received data wait before my program reads it?
-* How can data arrive when my program isn't currently executing recv()?
-* Why does the operating system know which application should receive an incoming packet?
-* What exactly does close() destroy?
-* Why can multiple programs use the network at the same time?
 
+**1) Why does socket() return an integer?** Because this integer is an ID for a file descriptor which is a resource managed by the kernel.
 
-**Why does socket() return an integer?** Because this integer is an ID for a file descriptor which is a resource managed by the kernel.
-
-**Why can recv() block my program?** Suppose you did:
+**2) Why can recv() block my program?** Suppose you did:
 
 ```C++
 char buffer[1024];
@@ -1032,7 +1031,7 @@ but nothing has arrived yet. The kernel sees this:
 ```
 but we asked the kernel to receive something. the kernel cannot return something that isn't there, so it waits until some data arrives. With normal blocking sockets, when we encounter this operation, the kernel, essentially, puts the main thread (the one that manages our C++ application) to sleep, until data arrives.
 
-**Where does received data wait before my program reads it?** Received data lives in the kernel memory. Once you call:
+**3) Where does received data wait before my program reads it?** Received data lives in the kernel memory. Once you call:
 
 ```C++
 recv(socket, buffer, sizeof(buffer), 0);
@@ -1040,8 +1039,12 @@ recv(socket, buffer, sizeof(buffer), 0);
 
 everything from the kernel memory is copied to the user space memory (aka. it is copied to `buffer`).
 
-**How can data arrive when my program isn't currently executing `recv()`?** This is, probobly, the hardest conceptual leap in terms of understanding sockets and kernel. Our program does not directly receive bytes from the NIC directly, OS does.
+**4)How can data arrive when my program isn't currently executing `recv()`?** This is, probobly, the hardest conceptual leap in terms of understanding sockets and kernel. Our program does not directly receive bytes from the NIC directly, OS does.
 
 NIC constantly is receiving bytes from the network, but it does not mean that our application is constantly getting those bytes. `recv()` does not mean "Start listening to the network right now", it is closer to "Give me the data the kernel is storing for this socket. If there is not any, wait according to the socket's blocking / nonblocking behavior (setup)".
 
 The previous question / answer helps us with this question also. Because the NIC is constantly receving traffic, some of that traffic will be dedicated to the IP:Port that we use, which means that that traffic (the bytes) are dedicated to our program. But because those received bytes live in the kernel memory and because our application, that is in user space, cannot directly access the kernel space, we have to call `recv()` for it.
+
+**5) Why does the operating system know which application should receive an incoming packet?** Because OS maintains networking data structure map that knows describes which traffic (data packets) are going to which sockets (one of those sockets is the one we created in this lesson).
+
+**6) What exactly does close() destroy?** 

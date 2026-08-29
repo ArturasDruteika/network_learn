@@ -855,8 +855,6 @@ Your program
      network device
 ```
 
-#### Conclusion for Sockets and Kernel
-
 Why Should You Care About How Sockets Work in Kernel Space?
 
 If you skipped the kernel side of the sockets, theoretically you could still continue with this lesson, but the problem of not understanding what sockets truly are would drastically slow down the learning for the later lessons.
@@ -868,7 +866,6 @@ For example, questions like:
 4) How can data arrive when my program isn't currently executing recv()?
 5) Why does the operating system know which application should receive an incoming packet?
 6) What exactly does close() destroy?
-7) Why can multiple programs use the network at the same time?
 
 would be many times harder to explain without knowing the kernel side of the sockets.
 
@@ -1012,7 +1009,6 @@ I said that we can answer these questions:
 4) How can data arrive when my program isn't currently executing recv()?
 5) Why does the operating system know which application should receive an incoming packet?
 6) What exactly does close() destroy?
-7) Why can multiple programs use the network at the same time?
 
 
 **1) Why does socket() return an integer?** Because this integer is an ID for a file descriptor which is a resource managed by the kernel.
@@ -1048,3 +1044,40 @@ The previous question / answer helps us with this question also. Because the NIC
 **5) Why does the operating system know which application should receive an incoming packet?** Because OS maintains networking data structure map that knows describes which traffic (data packets) are going to which sockets (one of those sockets is the one we created in this lesson).
 
 **6) What exactly does close() destroy?** 
+
+```C++
+close(client_socket);
+close(server_socket);
+```
+
+This operation tells OS that the process has finished using this (these) file descriptor(s). 
+
+First of all, `close()` is not specific to sockets, it is a C++ function which tells the CPU that the operation using this file descriptor is finished. 
+
+Remember this:
+
+```
+Your C++ application process
+
+File descriptor table
+
+0 ----> standard input
+1 ----> standard output
+2 ----> standard error
+3 ----> socket
+4 ----> some file
+5 ----> another socket
+```
+
+`close()` could be used on any of these file descriptors and it would do exactly the same thing in this process scope.
+
+Now, we have a situation where we have closed a file descriptor, but what happens to the socket in kernel space? Closing a file descriptor and destroying a socket in kernel space are 2 different things. 
+
+For a simple application, where calling `close(socket)` is the last call to this socket, it triggers the kernel to start the termination process of that socket specified in `close(socket)` statement.
+
+I won't go into the details of what happens tpo the socket in the kernel space, because currently I have not read about it and I do not think that this is a key thing to know for our simple ping-pomg application. Main thing to know that after calling `close(socket)` you should never try to do any operations with that file descriptor, because all of the resources of that resource (described by this file descriptor) are terminated.
+
+
+#### Conclusion for Sockets and Kernel
+
+The main things to understand about sockets and kernel are that in user space, we only have a file descriptor for a socket. All the real magic happens in the kernel space, because real socket objects and how data is assigned to which socket happens in NIC.

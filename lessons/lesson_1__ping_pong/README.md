@@ -85,7 +85,7 @@ int main()
 
     const char* reply = "Pong";
 
-    send(client_socket, reply, strlen(reply) + 1, 0);
+    send(client_socket, reply, strlen(reply), 0);
 
     close(client_socket);
     close(server_socket);
@@ -122,7 +122,7 @@ int main()
 
     const char* message = "Ping";
 
-    send(socket_fd, message, strlen(message) + 1, 0);
+    send(socket_fd, message, strlen(message), 0);
 
     char buffer[1024]{};
 
@@ -420,7 +420,7 @@ listen(server_socket, 1);
 
 This line tells to OS that this socket `server_socket` is a server socket and because of it, start listening for incoming connections. 
 
-Before this line was called, our socket was just a simple TCP endpoint. But this endopoint still does not have a purposeful reason on why it exists. `listen()` is the function that makes our socket capable of listening for incoming clients, meaning that now, our socket is has a purpose. 
+Before this line was called, our socket was just a simple TCP endpoint. But this endopoint still does not have a purposeful reason on why it exists. `listen()` is the function that makes our socket capable of listening for incoming clients, meaning that now, our socket has a purpose. 
 
 This funciton does not create a separate thread or repeatedly check for connection. It tells the kernel that if a new connections arrives on this socket, queue them until my program processes them further.
 
@@ -1080,4 +1080,51 @@ I won't go into the details of what happens tpo the socket in the kernel space, 
 
 #### Conclusion for Sockets and Kernel
 
-The main things to understand about sockets and kernel are that in user space, we only have a file descriptor for a socket. All the real magic happens in the kernel space, because real socket objects and how data is assigned to which socket happens in NIC.
+The main things to understand about sockets and kernel are that, in user space, our application interacts with a socket mainly through a file descriptor. The actual socket object and it's networking state is managed by the kernel inside the kernel space.
+
+When our application calls functions like: `soket()`, `bind()`, `listen()`, `accept()`, `send()`, `close()`, it is not the application itself that executes these operations but rather that it asks the kernel to perform these operations.
+
+Also, here is a short diagram showing what the main socket functions do:
+
+```
+socket()
+|
+|   create a socket
+▼
+listen()
+|
+|   enable listening so clients can connect
+▼
+accept()
+|
+|   (blocking operation) take 1 established connection 
+▼
+recv()
+|
+|   read bytes from that connected socket
+▼
+```
+
+Enough about kernels and sockets, let's get back to the server side code we have not yet covered.
+
+
+### Server Reply
+
+Because this is a simple "ping-pong" application, the idea behind it is just so that the client pings the server and the server "pongs" the client back thus letting the client know that there is a connection between it and the server.
+
+Using this logic, we can deduce, that the client in the:
+
+```C++
+recv(client_socket, buffer, sizeof(buffer), 0);
+```
+
+has probobly sent the server the message "ping" (I mean it can be what ever message, but for our program it will just be "ping", you can look it up in the `client.cpp` code) the server has to reply to the client with a message "pong".
+
+This is exactly what happens:
+
+```C++
+const char* reply = "Pong";
+send(client_socket, reply, strlen(reply), 0);
+```
+
+To be hones, `send(...)` is actually the opposite function from the `recv(...)`. You also have to specify the socket, through which you want to send the message (bytes), you specify the message, the message length and the special flags. Nothing special about the `send()` that you do not know about `recv()`.

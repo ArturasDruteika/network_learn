@@ -21,7 +21,7 @@ int main()
 
     connect(socket_fd, (sockaddr*)&server_addr, sizeof(server_addr));
 
-    const char* message = "Ping";
+    const char* message = "ping";
 
     send(socket_fd, message, strlen(message) + 1, 0);
 

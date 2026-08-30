@@ -34,9 +34,9 @@ int main()
 
     spdlog::info("Received: {}", buffer);
 
-    const char* reply = "Pong";
+    const char* reply = "pong";
 
-    send(client_socket, reply, strlen(reply) + 1, 0);
+    send(client_socket, reply, strlen(reply), 0);
 
     close(client_socket);
     close(server_socket);

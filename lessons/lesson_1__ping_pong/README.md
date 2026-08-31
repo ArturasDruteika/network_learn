@@ -1108,7 +1108,7 @@ recv()
 Enough about kernels and sockets, let's get back to the server side code we have not yet covered.
 
 
-### Server Reply
+#### Server Reply
 
 Because this is a simple "ping-pong" application, the idea behind it is just so that the client pings the server and the server "pongs" the client back thus letting the client know that there is a connection between it and the server.
 
@@ -1128,3 +1128,99 @@ send(client_socket, reply, strlen(reply), 0);
 ```
 
 To be hones, `send(...)` is actually the opposite function from the `recv(...)`. You also have to specify the socket, through which you want to send the message (bytes), you specify the message, the message length and the special flags. Nothing special about the `send()` that you do not know about `recv()`.
+
+
+#### Closing the Sockets
+
+After we have sent the response back to the client, our ping-pong logic ends. After server and client sockets have fulfilled their duties and if we decided not to use them anymore, we have to close them (terminate them). That is essentially what these lines do:
+
+```C++
+close(client_socket);
+close(server_socket);
+```
+
+As mentioned before, these lines indicate the program that we should not, going forward, use `client_socket` and `server_socket` file descriptors. FD is released. 
+
+There are some possibilities what happens with the integer associated with this socket fd. After calling 'close(...)` this number stops being a reference to that file descriptor and because of it your program might assign this number to some other resource.
+
+In kernel space, there is a little bit more that happens with the TCP socket after closing it. After calling `close(...)` the kernel starts closing the connection. But, anything remaining in the buffer that is ready to be send through that socket does not magically dissapear. That remaining data will be sent out through that socket. This diagram should give some insight on what happens:
+
+```
+Your process            Receiver
+    |                       |
+close(fd)                   |
+    |----remaining data---->|
+    |---------FIN---------->|
+    |                       |
+    |<--------ACK-----------|
+```
+
+Essentially, we send the remaining data. After all the data has been send we send a final message `FIN`. And finally our TCP socket, that now is not reachable from your process, receives an acknowledgent message (`ACK`) from the receiver, indicating that it received the message that this socket is terminating it's process.
+
+
+### Client Code
+
+Because we have first analised the code for the server side, now, we should easily understand the concept of the client's side of the code.
+
+Almost everything inside the client's code is the same as in the server's side. There are 2 major changes though:
+
+1. Logic behind the client
+2. `connect()`
+
+Let's nalyze them one by one.
+
+#### Client Logic
+
+Currently our program looks like this:
+
+```
+
+        SERVER                                  CLIENT
+   ----------------                        ----------------
+   |              |                        |              |
+   |   socket()   |                        |   socket()   |
+   |      |       |                        |      |       |
+   |      v       |                        |      v       |
+   |    bind()    |                        |  connect()   |
+   |      |       |          Connects      |      |       |
+   |      v       |  <------------------   |      |       |
+   |   listen()   |                        |      |       |
+   |      |       |                        |      |       |
+   |      v       |                        |      |       |
+   |   accept()   |                        |      |       |
+   |      |       |                        |      |       |
+   |      v       |                        |      v       |
+   |   recv()     |  <------ "PING" ------ |   send()     |
+   |      |       |                        |      |       |
+   |      v       |                        |      v       |
+   |   send()     |  ---- "PONG" --------> |   recv()     |
+   |      |       |                        |      |       |
+   |      v       |                        |      v       |
+   |   close()    |                        |   close()    |
+   |              |                        |              |
+   ----------------                        ----------------
+
+```
+
+The main difference between server and a client is how a connection is established:
+
+```
+SERVER                              CLIENT
+
+socket()                            socket()
+   |                                   |
+bind()                                 |
+   |                                   |
+listen()                               |
+   |                                   |
+accept()  <-------- connect() ---------+
+   |
+   |       CONNECTION ESTABLISHED
+   |
+recv()   <---------- send()
+send()   ----------> recv()
+   |                   |
+close()              close()
+```
+
+The client is the one that initializes the connection between the server and itself.

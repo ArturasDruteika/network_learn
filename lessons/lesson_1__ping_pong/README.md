@@ -100,29 +100,43 @@ Client code:
 #include "spdlog/spdlog.h"
 
 #include <arpa/inet.h>
+#include <cstring>
 #include <string_view>
 #include <unistd.h>
 
 
-constexpr int PORT = 8080;
-constexpr std::string_view HOST = "127.0.0.1";
+constexpr int SERVER_PORT = 8080;
+constexpr std::string_view SERVER_IP = "127.0.0.1";
+
+constexpr int CLIENT_PORT = 9000;
+constexpr std::string_view CLIENT_IP = "127.0.0.2";
 
 
 int main()
 {
     int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
+    // Client's own address
+    sockaddr_in client_addr{};
+    client_addr.sin_family = AF_INET;
+    client_addr.sin_port = htons(CLIENT_PORT);
+
+    inet_pton(AF_INET, CLIENT_IP.data(), &client_addr.sin_addr);
+
+    bind(socket_fd, (sockaddr*)&client_addr, sizeof(client_addr));
+
+    // Server's address
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(PORT);
+    server_addr.sin_port = htons(SERVER_PORT);
 
-    inet_pton(AF_INET, HOST.data(), &server_addr.sin_addr);
+    inet_pton(AF_INET, SERVER_IP.data(), &server_addr.sin_addr);
 
     connect(socket_fd, (sockaddr*)&server_addr, sizeof(server_addr));
 
-    const char* message = "Ping";
+    const char* message = "ping";
 
-    send(socket_fd, message, strlen(message), 0);
+    send(socket_fd, message, strlen(message) + 1, 0);
 
     char buffer[1024]{};
 
@@ -1223,4 +1237,34 @@ send()   ----------> recv()
 close()              close()
 ```
 
-The client is the one that initializes the connection between the server and itself.
+The client is the one that initializes the connection between the server and itself. 
+
+This is the main difference between a client and a server for this ping-pong application.
+
+One more thing, notice that a client has also it's own IP and port:
+
+```C++
+constexpr int CLIENT_PORT = 9000;
+constexpr std::string_view CLIENT_IP = "127.0.0.2";
+```
+
+We have to create a separate socket for client also, because we need to establish a TCP connection with the server:
+
+```
+Client process                         Server process
+
+socket_fd                              client_socket
+    │                                       │
+    │ local:  127.0.0.2:9000                │ local:  127.0.0.1:8080
+    │ remote: 127.0.0.1:8080                │ remote: 127.0.0.2:9000
+    │                                       │
+    └──────────── TCP connection ───────────┘
+```
+
+#### Client Connection
+
+The final keyword we need to understand for this ping-pong application is the:
+
+```C++
+connect(socket_fd, (sockaddr*)&server_addr, sizeof(server_addr));
+```

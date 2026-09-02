@@ -288,25 +288,23 @@ In this example:
 
 The communication flow can be visualized as:
 
-```text
-Person A
-(Building 10, Apartment 5)
-        │
+    Person A
+    (Building 10, Apartment 5)
+            │
+        Telephone (Socket)
+            │
+            ▼
+        Dial 4.17
+            │
+            ▼
+    Building 4 (IP Address)
+            │
+    Apartment 17 (Port)
+            │
     Telephone (Socket)
-        │
-        ▼
-     Dial 4.17
-        │
-        ▼
-Building 4 (IP Address)
-        │
-Apartment 17 (Port)
-        │
-Telephone (Socket)
-        │
-        ▼
-Person B (Application)
-```
+            │
+            ▼
+    Person B (Application)
 
 Now we know what all 3 major concepts mean in TCP networking. But just to glide by it one more time:
 
@@ -378,26 +376,22 @@ Right now we have a socket descriptor `server_socket` that is just a simple numb
 
 Now, our current socket looks like this:
 
-```
---------------
-|            |
-| TCP socket |
-| No address |
-|            |
--------------
-```
+    --------------
+    |            |
+    | TCP socket |
+    | No address |
+    |            |
+    -------------
 
 What we want is this:
 
-```
------------------
-|               |
-| TCP socket    |
-| IP: 127.0.0.1 |
-| Port: 8080    |
-|               |
------------------
-```
+    -----------------
+    |               |
+    | TCP socket    |
+    | IP: 127.0.0.1 |
+    | Port: 8080    |
+    |               |
+    -----------------
 
 What `bind()` does is exactly this. It associates the created socket with a defined IP address and a port. It kind of connects `server_addr` info with `server_socket`.
 
@@ -523,20 +517,17 @@ The final question I have about `listen()` and `accept()` was: "In general, what
 
 To put it short:
 
-```
-------------
-|          |
-| listen() |  --> start listening, but do not do anything else
-|          |
-------------
+    ------------
+    |          |
+    | listen() |  --> start listening, but do not do anything else
+    |          |
+    ------------
 
-------------
-|          |
-| accept() |  --> if anyone tries to connect, start processing
-|          |
-------------
-
-```
+    ------------
+    |          |
+    | accept() |  --> if anyone tries to connect, start processing
+    |          |
+    ------------
 
 
 #### Dealing with a Client
@@ -552,12 +543,10 @@ This is how we "process" the client once it connects.
 
 Initially we need to create a buffer that could store the information the client sends. We create an emtpy buffer (by using default initialization `{}`) that at first looks like this:
 
-```
-buffer
-+----+----+----+----+-----+
-|  0 |  0 |  0 |  0 | ... |
-+----+----+----+----+-----+
-```
+    buffer
+    +----+----+----+----+-----+
+    |  0 |  0 |  0 |  0 | ... |
+    +----+----+----+----+-----+
 
 Then we call `recv()`. Since we have a client socket's descriptor, we use it to tell the kernel "read data from this connected socket". That is, essentially, what the `recv()` does.
 
@@ -572,25 +561,23 @@ Let's get back to sockets, kernels and everything else related to this topic. At
 
 The computer is organized something like this:
 
-```
-┌───────────────────────────────────────┐
-│              User space               │
-│                                       │
-│  Chrome     Calculator   Your C++ app │
-│                                       │
-├───────────────────────────────────────┤
-│                KERNEL                 │
-│                                       │
-│  Processes        Filesystem          │
-│  Memory           TCP/IP networking   │
-│  Drivers          Sockets             │
-│                                       │
-├───────────────────────────────────────┤
-│              Hardware                 │
-│                                       │
-│  CPU     RAM     SSD     Network card │
-└───────────────────────────────────────┘
-```
+    ┌───────────────────────────────────────┐
+    │              User space               │
+    │                                       │
+    │  Chrome     Calculator   Your C++ app │
+    │                                       │
+    ├───────────────────────────────────────┤
+    │                KERNEL                 │
+    │                                       │
+    │  Processes        Filesystem          │
+    │  Memory           TCP/IP networking   │
+    │  Drivers          Sockets             │
+    │                                       │
+    ├───────────────────────────────────────┤
+    │              Hardware                 │
+    │                                       │
+    │  CPU     RAM     SSD     Network card │
+    └───────────────────────────────────────┘
 
 You can kind of divide it into 3 parts, where each part is going deeper to the actual electricity, transistors and capacitors.
 
@@ -615,14 +602,12 @@ I think that one of the ways to understand what this is, we have to start with a
 
 Think of the whole computer as a human body. The hardware is the physical body:
 
-```
-eyes                ->      monitor
-ears                ->      speakers
-hands               ->      keyboard / mouse
-short-term memory   ->      RAM
-long-term memory    ->      SSD
-nervous system      ->      buses / electrical connections
-```
+    eyes                ->      monitor
+    ears                ->      speakers
+    hands               ->      keyboard / mouse
+    short-term memory   ->      RAM
+    long-term memory    ->      SSD
+    nervous system      ->      buses / electrical connections
 
 Now, imagine your thoughts or your conscience as programs (applications).
 
@@ -662,21 +647,18 @@ Remember how previously I said that all the operations performed by the applicat
 
 To understnad better why priviliged rights are necessary, we first have to understand what path does a program take while it is being executed. Once a program starts to get executed, it follows this path:
 
-```
-C++ program
-     │
-     ▼
-    CPU -----------------> Other hardware
-     │           |         (GPU, SSD, network card,
-     │           |         USB device, accelerator, etc.)
-     │           ▼                      |
-     │-----> does work <-----------------
-                 │
-                 │
-                 ▼    
-        Hardware operations     
-
-```
+    C++ program
+        │
+        ▼
+        CPU -----------------> Other hardware
+        │           |         (GPU, SSD, network card,
+        │           |         USB device, accelerator, etc.)
+        │           ▼                      |
+        │-----> does work <-----------------
+                    │
+                    │
+                    ▼    
+            Hardware operations     
 
 First thing to know is that all programs are executed using CPU. In CPU itself there are more steps like compilation, but again, the goal of this lesson is not to give an intuition on how C++ works itself, but rather how networking works and what parts of hardware are responsible for what and why.
 
@@ -684,33 +666,29 @@ Every program starts by being executed by the CPU, but, for the aforementioned r
 
 There are 2 execution modes with different priviliged rights levels:
 
-```
-CPU execution
-│
-├── User mode
-│   └── restricted privileges
-│
-└── Kernel mode
-    └── much higher privileges
-```
+    CPU execution
+    │
+    ├── User mode
+    │   └── restricted privileges
+    │
+    └── Kernel mode
+        └── much higher privileges
 
 The CPU can execude code at different privilege levels. Ordinary applications execute in user mode, where certain operations are restricted. The kernel executes in kernel mode, where it has access to privileged operations that user mode programs cannot directly perform.
 
 But, user mode still has some permissions:
 
-```
-User mode
-├── add numbers                  ✓
-├── modify CPU registers         ✓
-├── read its permitted memory    ✓
-├── write its permitted memory   ✓
-├── call functions               ✓
-├── execute branches             ✓
-│
-├── access kernel memory         ✗
-├── change page tables directly  ✗
-└── execute privileged CPU ops   ✗
-```
+    User mode
+    ├── add numbers                  ✓
+    ├── modify CPU registers         ✓
+    ├── read its permitted memory    ✓
+    ├── write its permitted memory   ✓
+    ├── call functions               ✓
+    ├── execute branches             ✓
+    │
+    ├── access kernel memory         ✗
+    ├── change page tables directly  ✗
+    └── execute privileged CPU ops   ✗
 
 At first, I kind of struggled with the idea that for some reason, some operations can be executed only in user mode, while others have to work in kernel mode? If kernel mode has stricter rules, then why doesn't all operation, no matter how simple they are, get executed in kernel mode?
 
@@ -718,19 +696,17 @@ The reason is that CPUs have predefined permissions, like the ones seen in the a
 
 The CPU can safely allow the program to execute a simple addition. There is essentially no security benefit by doing this:
 
-```
-Program
-|
-| "Kernel, can I add 2 numbers?"
-|
-▼
-Kernel
-|
-| "Yes"
-|
-▼
-CPU performs addition
-```
+    Program
+    |
+    | "Kernel, can I add 2 numbers?"
+    |
+    ▼
+    Kernel
+    |
+    | "Yes"
+    |
+    ▼
+    CPU performs addition
 
 The CPU provides hardware-enforced privilege levels. While executing in user mode, certain instructions and memory regions are inaccessible. The OS configures much of this protection, and the CPU enforces it while executing the program. If for every operation we asked the help of the kernel, it would add enormous overhead while protecting nothing useful. 
 
@@ -738,7 +714,6 @@ It is kind of like if before you ate anything, there was additional person that 
 
 To some this section up, you can think that CPU draws a sanbox around your application with operations that can be executed in user space. Anything that requires privileged rights is directed to kernel space:
 
-```
                 USER MODE
 
      ┌──────────────────────────────┐
@@ -762,7 +737,6 @@ To some this section up, you can think that CPU draws a sanbox around your appli
      kernel memory              ✗
      arbitrary device control   ✗
      privileged CPU operations  ✗
-```
 
 
 #### Sockets and Kernel
@@ -779,44 +753,42 @@ int server_fd = socket(...);
 
 At first glance it is a bit misleading, because it creates this intuition:
 
-```
-C++ application
-|
-|
--->int server_fd
-        |
-        --> socket
-```
+    C++ application
+    |
+    |
+    -->int server_fd
+            |
+            --> socket
 
 But this is not entirely and accurately what is happening. A better mental model is this:
 
-```
-            USER SPACE
+                        USER SPACE
 
-        Your C++ application
-       ┌───────────────────┐
-       │                   │
-       │     sock = 3      │
-       │        │          │
-       └────────┼──────────┘
-                │
-        descriptor / handle
-                │
-────────────────┼────────────────
-                │
-                ▼
-              KERNEL
+                      C++ Application
+                ┌────────────────────────┐
+                │                        │
+                │       sock = 3         │
+                │          │             │
+                └──────────┼─────────────┘
+                           │
+                    file descriptor
+                           │
+                           │
+    ═══════════════════════╪═════════════════════════
+                    User ↕ Kernel
+                           │
+                           ▼
+                         KERNEL
 
-        ┌───────────────────┐
-        │   socket object   │
-        │                   │
-        │ protocol state    │
-        │ addresses         │
-        │ buffers           │
-        │ connection state  │
-        │ ...               │
-        └───────────────────┘
-```
+                ┌────────────────────────┐
+                │      Socket Object     │
+                ├────────────────────────┤
+                │  • Protocol state      │
+                │  • Local/remote addr.  │
+                │  • Send/recv buffers   │
+                │  • Connection state    │
+                │  • Other metadata      │
+                └────────────────────────┘
 
 As mentioned before the interger that your program receives is not the socket itself, it is simply a file descriptor (a small identifier that lets a user to refer to the socket object itself).
 
@@ -832,42 +804,38 @@ Your application cannot simply take control of the network card and start transm
 
 So when your application wants to use network, the basic relationship between your app and the hardware looks like this:
 
-```
-Application
-    │
-    │ "I want a socket"
-    ▼
-Kernel
-    │
-    │ creates/manages socket
-    ▼
-Application receives a way
-to refer to that socket
-```
+    Application
+        │
+        │ "I want a socket"
+        ▼
+    Kernel
+        │
+        │ creates/manages socket
+        ▼
+    Application receives a way
+    to refer to that socket
 
 Later when your application wants to perform operations on the created socket, it asks the kernel again:
 
-```
-Your program
-    │
-    ├── socket()
-    ├── bind()
-    ├── listen()
-    ├── accept()
-    ├── connect()
-    ├── send()
-    ├── recv()
-    └── close()
-          │
-          ▼
-        Kernel
-          │
-          ▼
-   networking subsystem
-          │
-          ▼
-     network device
-```
+    Your program
+        │
+        ├── socket()
+        ├── bind()
+        ├── listen()
+        ├── accept()
+        ├── connect()
+        ├── send()
+        ├── recv()
+        └── close()
+            │
+            ▼
+            Kernel
+            │
+            ▼
+    networking subsystem
+            │
+            ▼
+        network device
 
 Why Should You Care About How Sockets Work in Kernel Space?
 
@@ -890,18 +858,16 @@ Before answering these, the final thing we need to learn about in depth are file
 
 Because this number represents a file descriptor. Conceptually, your application process has something like a table maintained with the help of the kernel:
 
-```
-Your C++ application process
+    Your C++ application process
 
-File descriptor table
+    File descriptor table
 
-0 ----> standard input
-1 ----> standard output
-2 ----> standard error
-3 ----> socket
-4 ----> some file
-5 ----> another socket
-```
+    0 ----> standard input
+    1 ----> standard output
+    2 ----> standard error
+    3 ----> socket
+    4 ----> some file
+    5 ----> another socket
 
 When your program refers to the file descriptor with ID = 3, it means that particular open resource. You can think of resource as something that your program can access/use through the OS which is entirely managed by the kernel. The actual socket data structures are maintained by the kernel in kernel memory.
 
@@ -923,11 +889,9 @@ int socket_fd = socket(...);
 
 For the 3 standart streams we already know what are their file descriptor values:
 
-```
-stdin  ----> 0
-stdout ----> 1
-stderr ----> 2
-```
+    stdin  ----> 0
+    stdout ----> 1
+    stderr ----> 2
 
 If you want to be an archaic cool person, you can use these 3 file descriptors like this:
 
@@ -1070,18 +1034,16 @@ First of all, `close()` is not specific to sockets, it is a C++ function which t
 
 Remember this:
 
-```
-Your C++ application process
+    Your C++ application process
 
-File descriptor table
+    File descriptor table
 
-0 ----> standard input
-1 ----> standard output
-2 ----> standard error
-3 ----> socket
-4 ----> some file
-5 ----> another socket
-```
+    0 ----> standard input
+    1 ----> standard output
+    2 ----> standard error
+    3 ----> socket
+    4 ----> some file
+    5 ----> another socket
 
 `close()` could be used on any of these file descriptors and it would do exactly the same thing in this process scope.
 
@@ -1100,24 +1062,22 @@ When our application calls functions like: `soket()`, `bind()`, `listen()`, `acc
 
 Also, here is a short diagram showing what the main socket functions do:
 
-```
-socket()
-|
-|   create a socket
-▼
-listen()
-|
-|   enable listening so clients can connect
-▼
-accept()
-|
-|   (blocking operation) take 1 established connection 
-▼
-recv()
-|
-|   read bytes from that connected socket
-▼
-```
+    socket()
+    |
+    |   create a socket
+    ▼
+    listen()
+    |
+    |   enable listening so clients can connect
+    ▼
+    accept()
+    |
+    |   (blocking operation) take 1 established connection 
+    ▼
+    recv()
+    |
+    |   read bytes from that connected socket
+    ▼
 
 Enough about kernels and sockets, let's get back to the server side code we have not yet covered.
 
@@ -1159,15 +1119,13 @@ There are some possibilities what happens with the integer associated with this 
 
 In kernel space, there is a little bit more that happens with the TCP socket after closing it. After calling `close(...)` the kernel starts closing the connection. But, anything remaining in the buffer that is ready to be send through that socket does not magically dissapear. That remaining data will be sent out through that socket. This diagram should give some insight on what happens:
 
-```
-Your process            Receiver
-    |                       |
-close(fd)                   |
-    |----remaining data---->|
-    |---------FIN---------->|
-    |                       |
-    |<--------ACK-----------|
-```
+    Your process            Receiver
+        |                       |
+    close(fd)                   |
+        |----remaining data---->|
+        |---------FIN---------->|
+        |                       |
+        |<--------ACK-----------|
 
 Essentially, we send the remaining data. After all the data has been send we send a final message `FIN`. And finally our TCP socket, that now is not reachable from your process, receives an acknowledgent message (`ACK`) from the receiver, indicating that it received the message that this socket is terminating it's process.
 
@@ -1187,55 +1145,49 @@ Let's nalyze them one by one.
 
 Currently our program looks like this:
 
-```
-
         SERVER                                  CLIENT
-   ----------------                        ----------------
-   |              |                        |              |
-   |   socket()   |                        |   socket()   |
-   |      |       |                        |      |       |
-   |      v       |                        |      v       |
-   |    bind()    |                        |  connect()   |
-   |      |       |          Connects      |      |       |
-   |      v       |  <------------------   |      |       |
-   |   listen()   |                        |      |       |
-   |      |       |                        |      |       |
-   |      v       |                        |      |       |
-   |   accept()   |                        |      |       |
-   |      |       |                        |      |       |
-   |      v       |                        |      v       |
-   |   recv()     |  <------ "PING" ------ |   send()     |
-   |      |       |                        |      |       |
-   |      v       |                        |      v       |
-   |   send()     |  ---- "PONG" --------> |   recv()     |
-   |      |       |                        |      |       |
-   |      v       |                        |      v       |
-   |   close()    |                        |   close()    |
-   |              |                        |              |
-   ----------------                        ----------------
-
-```
+    ----------------                        ----------------
+    |              |                        |              |
+    |   socket()   |                        |   socket()   |
+    |      |       |                        |      |       |
+    |      v       |                        |      v       |
+    |    bind()    |                        |  connect()   |
+    |      |       |          Connects      |      |       |
+    |      v       |  <------------------   |      |       |
+    |   listen()   |                        |      |       |
+    |      |       |                        |      |       |
+    |      v       |                        |      |       |
+    |   accept()   |                        |      |       |
+    |      |       |                        |      |       |
+    |      v       |                        |      v       |
+    |   recv()     |  <------ "PING" ------ |   send()     |
+    |      |       |                        |      |       |
+    |      v       |                        |      v       |
+    |   send()     |  ---- "PONG" --------> |   recv()     |
+    |      |       |                        |      |       |
+    |      v       |                        |      v       |
+    |   close()    |                        |   close()    |
+    |              |                        |              |
+    ----------------                        ----------------
 
 The main difference between server and a client is how a connection is established:
 
-```
-SERVER                              CLIENT
+    SERVER                              CLIENT
 
-socket()                            socket()
-   |                                   |
-bind()                                 |
-   |                                   |
-listen()                               |
-   |                                   |
-accept()  <-------- connect() ---------+
-   |
-   |       CONNECTION ESTABLISHED
-   |
-recv()   <---------- send()
-send()   ----------> recv()
-   |                   |
-close()              close()
-```
+    socket()                            socket()
+    |                                   |
+    bind()                                 |
+    |                                   |
+    listen()                               |
+    |                                   |
+    accept()  <-------- connect() ---------+
+    |
+    |       CONNECTION ESTABLISHED
+    |
+    recv()   <---------- send()
+    send()   ----------> recv()
+    |                   |
+    close()              close()
 
 The client is the one that initializes the connection between the server and itself. 
 
@@ -1250,16 +1202,135 @@ constexpr std::string_view CLIENT_IP = "127.0.0.2";
 
 We have to create a separate socket for client also, because we need to establish a TCP connection with the server:
 
-```
-Client process                         Server process
+    Client process                         Server process
 
-socket_fd                              client_socket
-    │                                       │
-    │ local:  127.0.0.2:9000                │ local:  127.0.0.1:8080
-    │ remote: 127.0.0.1:8080                │ remote: 127.0.0.2:9000
-    │                                       │
-    └──────────── TCP connection ───────────┘
-```
+    socket_fd                              client_socket
+        │                                       │
+        │ local:  127.0.0.2:9000                │ local:  127.0.0.1:8080
+        │ remote: 127.0.0.1:8080                │ remote: 127.0.0.2:9000
+        │                                       │
+        └──────────── TCP connection ───────────┘
+
+#### Client / Server Sockets
+
+For a simple client-server TCP connection, there are **3 sockets in total** when considering both the client and server processes.
+
+| Socket | Lives in | Created by | Purpose | Local endpoint | Remote endpoint |
+|---|---|---|---|---|---|
+| **Client socket** (`socket_fd`) | Client process | `socket()` in client | Connects to the server and sends/receives data | `127.0.0.2:9000` | `127.0.0.1:8080` |
+| **Listening socket** (`server_socket`) | Server process | `socket()` in server | Waits for new TCP connections | `127.0.0.1:8080` | None — it is listening, not connected to a specific client |
+| **Server's connected client socket** (`client_socket`) | Server process | Returned by `accept()` | Communicates with one specific connected client | `127.0.0.1:8080` | `127.0.0.2:9000` |
+
+#### Visualization
+
+    CLIENT PROCESS                         SERVER PROCESS
+
+                                          ┌─────────────────────┐
+                                          │   server_socket     │
+                                          │                     │
+                                          │ 127.0.0.1:8080      │
+                                          │                     │
+                                          │ LISTENING for new   │
+                                          │ connections         │
+                                          └──────────┬──────────┘
+                                                     │
+                                                     │ accept()
+                                                     ▼
+    ┌─────────────────────┐              ┌─────────────────────┐
+    │     socket_fd       │              │    client_socket    │
+    │                     │              │                     │
+    │ local:              │              │ local:              │
+    │ 127.0.0.2:9000      │              │ 127.0.0.1:8080      │
+    │                     │              │                     │
+    │ remote:             │              │ remote:             │
+    │ 127.0.0.1:8080      │              │ 127.0.0.2:9000      │
+    └──────────┬──────────┘              └──────────┬──────────┘
+               │                                    │
+               │                                    │
+               └═══════ TCP CONNECTION ═════════════┘
+
+#### 1. Client Socket — `socket_fd`
+
+Created in the **client process** using:
+
+    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+It is used by the client to establish a connection with the server and then send and receive data.
+
+After the connection is established:
+
+    Local:  127.0.0.2:9000
+    Remote: 127.0.0.1:8080
+
+---
+
+#### 2. Server Listening Socket — `server_socket`
+
+Created in the **server process** using:
+
+    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+It is then bound to the server's address:
+
+    127.0.0.1:8080
+
+and placed into listening mode:
+
+    listen(server_socket, 1);
+
+Its purpose is to wait for **new incoming TCP connections**.
+
+It is not used to communicate with a particular connected client.
+
+---
+
+#### 3. Server Connected Socket — `client_socket`
+
+Returned to the server by:
+
+    int client_socket = accept(
+        server_socket,
+        (sockaddr*)&client_addr,
+        &client_len
+    );
+
+This socket represents the server's side of the connection with **one specific client**.
+
+    Local:  127.0.0.1:8080
+    Remote: 127.0.0.2:9000
+
+The server uses this socket to communicate with that client:
+
+    recv(client_socket, ...);
+    send(client_socket, ...);
+
+### Important
+
+Although there are **3 socket objects** in this simple example, only **2 connected sockets participate in the established TCP connection**:
+
+    Client's connected socket              Server's connected socket
+
+        socket_fd                              client_socket
+            │                                      │
+            │                                      │
+    127.0.0.2:9000  <========= TCP =========> 127.0.0.1:8080
+
+The third socket, `server_socket`, is the **listening socket**. Its job is to wait for and accept new connections.
+
+In short:
+
+    Client process:
+        1 connected socket
+
+    Server process:
+        1 listening socket
+        1 connected socket
+
+    Total:
+        3 socket objects
+
+    Actual TCP connection:
+        2 connected sockets
 
 #### Client Connection
 

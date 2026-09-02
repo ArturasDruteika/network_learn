@@ -1,60 +1,139 @@
 # Lesson 1: Ping Pong
 
+## Premise
 
-## Premise 
+There is a saying that you only truly understand something when you can explain it simply.
 
-I have never been a person that wanted to spend time teaching other how stuff works, but this year I fully realized the saying "You are only an expect in a subject if you can explain it in a way that a child could understand it".
+That is the idea behind these lessons.
 
-I wanted to say this, that this project is not meant to be a big project with complex functionalities. This project is more about understanding the basics of networking so that we could explain it in a way that children could understand what we are doing.
+This project is not about building a large networking framework or implementing complicated functionality. Instead, the goal is to understand the fundamentals of networking well enough that we could explain what is happening without hiding behind words such as *socket*, *port*, *kernel*, or *TCP*.
 
-Also, I decided to make these lessons, because I have another lessons that I started to do before networking. Those lessons are about rendering using OpenGL. While writing down those lessons, I observed the fact that what I thought was pretty "easy" is not that easy once I tried to explain it to others. That meant that I was not a specialist of that subject. But once I wrote down the first few lessons, I clearly noticed that I had better understand how basic things worked in redering.
+I noticed the value of this approach while writing my OpenGL lessons. Things that initially seemed obvious became surprisingly difficult to explain. Writing the explanations forced me to notice gaps in my own understanding.
 
-With these lesson about rendering, I intend to teach myself about how networking using C++ works. With the word "myself" I imply also people that will be reading these lessons. 
+I want to use the same approach for networking in C++.
 
-In the end, I hope that I and you will be able to understand the building blocks of networking so that we could all explain it to the little kids.
+So throughout these lessons, whenever we encounter something unfamiliar, we will try to answer two questions:
 
+1. **What does it do?**
+2. **Why does it exist?**
 
-## Ping Pong
+For this first lesson, we will build the smallest TCP program I could think of:
 
-In rendering there is a saying that everyone should start learning it by understanding and rendering a single triangle on a screen. In networking, most of the internet says that people should start learning it by creating a simple server / client program where a client can chat with a server and receive messages from server. 
+```text
+Client                              Server
 
-This is all great, but for me, I found that to be too hard for me. That is why I have decided to go even deeper. This is where the ping pong test came to my mind. 
+  │                                   │
+  │ ----------- "Ping" -------------> │
+  │                                   │
+  │ <---------- "Pong" -------------- │
+  │                                   │
+```
 
-It is a very simple program which goal is to ping a server and receive the response if that server is running.
+That is all.
 
-This program is pretty linear, with no loops or anything hard to understand. The only hard parts in this lesson are the basic concepts of networking which, currently, we do not understand.
+Despite the tiny program, implementing it will introduce us to many of the fundamental ideas behind network programming.
 
-So, without further adu, let's dive into the code and understand everything to become specialists.
+---
 
+# Ping Pong
 
-## Program
+When learning graphics programming, people often begin by rendering a triangle.
 
-In networking, almost always there are 2 types of roles for the programs:
+For networking, a common first project is a client/server chat application.
 
-1. **Server** - program that is dealing with client requests
-2. **Client** - program that sends requests to the server
+I think even that introduces too many things at once.
 
-The idea that you need to have a server and a client, but, there can be many different servers and many different client implementations. For example, one server might only be responsible for temperature, meaning that if a client connects, this server immediately sends the current weather temperature, another server might be a chatroom where clients can connect and communicate with each other. Same idea goes with clients also. One client could work as some sort of a notification medium which can ping the temperature server to receive the temperature, the other client want to connect and communicate with other clients so it will connect to the chatroom server and etc..
+Instead, we will make a program with exactly one interaction:
 
-In order to have a valid ping pong logic, we need to have 2 programs: srver and client.
+```text
+Client connects
+      │
+      ▼
+Client sends "Ping"
+      │
+      ▼
+Server receives "Ping"
+      │
+      ▼
+Server sends "Pong"
+      │
+      ▼
+Client receives "Pong"
+      │
+      ▼
+Connection closes
+```
 
+There are no loops, multiple clients, threads, asynchronous operations, protocols of our own, or complicated message formats.
 
-### Note!!!
+The program exists purely to help us understand the building blocks.
 
-Before we begin, I just wanted to express, that some lines of the code will not be explained due to the fact that the line is clear or intuitive.
+---
 
-Server code:
+# Client and Server
 
-```C++
+For this program we have two roles.
+
+| Role | Responsibility |
+|---|---|
+| **Server** | Waits for incoming connections and responds to clients |
+| **Client** | Initiates a connection to the server and communicates with it |
+
+These are roles, not fundamentally different kinds of programs.
+
+A server is simply a program that offers some service to other programs.
+
+A client is a program that uses that service.
+
+For example:
+
+```text
+Weather client ────────> Weather server
+                         returns temperature
+
+Game client ───────────> Game server
+                         handles game state
+
+Browser ───────────────> Web server
+                         returns web content
+```
+
+Our service is much simpler:
+
+```text
+Ping ────────> Server
+     <──────── Pong
+```
+
+We therefore need two programs:
+
+```text
+server.cpp
+client.cpp
+```
+
+---
+
+# The Complete Program
+
+Before explaining individual pieces, here is the entire program.
+
+The code intentionally avoids production-level concerns such as retry logic, loops, multiple clients, non-blocking I/O, and extensive error handling.
+
+Those things matter, but they would distract from the concepts we are trying to learn.
+
+## Server
+
+```cpp
 #include "spdlog/spdlog.h"
 
 #include <arpa/inet.h>
+#include <cstring>
+#include <string_view>
 #include <unistd.h>
-
 
 constexpr int PORT = 8080;
 constexpr std::string_view HOST = "127.0.0.1";
-
 
 int main()
 {
@@ -64,10 +143,14 @@ int main()
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
 
-    // Listen only on localhost
     inet_pton(AF_INET, HOST.data(), &server_addr.sin_addr);
 
-    bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
+    bind(
+        server_socket,
+        reinterpret_cast<sockaddr*>(&server_addr),
+        sizeof(server_addr)
+    );
+
     listen(server_socket, 1);
 
     spdlog::info("Waiting for client...");
@@ -75,17 +158,37 @@ int main()
     sockaddr_in client_addr{};
     socklen_t client_len = sizeof(client_addr);
 
-    int client_socket = accept(server_socket, (sockaddr*)&client_addr, &client_len);
+    int client_socket = accept(
+        server_socket,
+        reinterpret_cast<sockaddr*>(&client_addr),
+        &client_len
+    );
 
     char buffer[1024]{};
 
-    recv(client_socket, buffer, sizeof(buffer), 0);
+    ssize_t received = recv(
+        client_socket,
+        buffer,
+        sizeof(buffer),
+        0
+    );
 
-    spdlog::info("Received: {}", buffer);
+    if (received > 0)
+    {
+        spdlog::info(
+            "Received: {}",
+            std::string_view(buffer, static_cast<std::size_t>(received))
+        );
+    }
 
-    const char* reply = "Pong";
+    constexpr std::string_view reply = "Pong";
 
-    send(client_socket, reply, strlen(reply), 0);
+    send(
+        client_socket,
+        reply.data(),
+        reply.size(),
+        0
+    );
 
     close(client_socket);
     close(server_socket);
@@ -94,16 +197,14 @@ int main()
 }
 ```
 
-Client code:
+## Client
 
-```C++
+```cpp
 #include "spdlog/spdlog.h"
 
 #include <arpa/inet.h>
-#include <cstring>
 #include <string_view>
 #include <unistd.h>
-
 
 constexpr int SERVER_PORT = 8080;
 constexpr std::string_view SERVER_IP = "127.0.0.1";
@@ -111,38 +212,69 @@ constexpr std::string_view SERVER_IP = "127.0.0.1";
 constexpr int CLIENT_PORT = 9000;
 constexpr std::string_view CLIENT_IP = "127.0.0.2";
 
-
 int main()
 {
     int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-    // Client's own address
+    // Give the client an explicit local address for this lesson.
     sockaddr_in client_addr{};
     client_addr.sin_family = AF_INET;
     client_addr.sin_port = htons(CLIENT_PORT);
 
-    inet_pton(AF_INET, CLIENT_IP.data(), &client_addr.sin_addr);
+    inet_pton(
+        AF_INET,
+        CLIENT_IP.data(),
+        &client_addr.sin_addr
+    );
 
-    bind(socket_fd, (sockaddr*)&client_addr, sizeof(client_addr));
+    bind(
+        socket_fd,
+        reinterpret_cast<sockaddr*>(&client_addr),
+        sizeof(client_addr)
+    );
 
-    // Server's address
+    // Address of the server we want to connect to.
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
 
-    inet_pton(AF_INET, SERVER_IP.data(), &server_addr.sin_addr);
+    inet_pton(
+        AF_INET,
+        SERVER_IP.data(),
+        &server_addr.sin_addr
+    );
 
-    connect(socket_fd, (sockaddr*)&server_addr, sizeof(server_addr));
+    connect(
+        socket_fd,
+        reinterpret_cast<sockaddr*>(&server_addr),
+        sizeof(server_addr)
+    );
 
-    const char* message = "ping";
+    constexpr std::string_view message = "Ping";
 
-    send(socket_fd, message, strlen(message) + 1, 0);
+    send(
+        socket_fd,
+        message.data(),
+        message.size(),
+        0
+    );
 
     char buffer[1024]{};
 
-    recv(socket_fd, buffer, sizeof(buffer), 0);
+    ssize_t received = recv(
+        socket_fd,
+        buffer,
+        sizeof(buffer),
+        0
+    );
 
-    spdlog::info("Server replied: {}", buffer);
+    if (received > 0)
+    {
+        spdlog::info(
+            "Server replied: {}",
+            std::string_view(buffer, static_cast<std::size_t>(received))
+        );
+    }
 
     close(socket_fd);
 
@@ -150,1192 +282,2813 @@ int main()
 }
 ```
 
-If you struggle to visually understand this program, I hope this image will help you:
+> **Important:** TCP is a byte stream. A single `send()` is not generally guaranteed to correspond to a single `recv()`, and `send()` itself may send fewer bytes than requested. Our messages are tiny and the program runs locally, so we keep the example intentionally simple. Later, when we build real message handling, we will deal with partial reads and writes correctly.
 
-![](assets/ping_pong_test.png)
+The overall program looks like this:
 
+```text
+SERVER                                      CLIENT
 
-### Server code
+socket()                                    socket()
+   │                                           │
+   ▼                                           ▼
+bind()                                      bind()
+   │                                           │
+   ▼                                           │
+listen()                                       │
+   │                                           │
+   ▼                                           ▼
+accept()  <──────────── connect() ─────────────┘
+   │
+   │              TCP connection
+   │
+   ▼
+recv()    <──────────── "Ping" ─────────── send()
+   │
+   ▼
+send()    ───────────── "Pong" ──────────> recv()
+   │                                           │
+   ▼                                           ▼
+close()                                     close()
+```
 
-Let's first analyze the server code, because without it, the concept of clients kind of does not make any sense.
+Now we can understand what each part actually means.
 
+---
 
-#### Includes
+# Includes
 
-`#include "spdlog/spdlog.h"` a simple logging tool. We will never use `std::cout` since spdlog is many times better.
+```cpp
+#include "spdlog/spdlog.h"
+```
 
-`#include <arpa/inet.h>` library provides internet address manipulation functions. What these are will be explained in later sections.
+`spdlog` is the logging library we use to display information.
 
-`#include <unistd.h>` library that provides access to OS services such as:
+For example:
 
-* File operations:
-    
-    * `read()`
-    * `write()`
-    * `close()`
+```cpp
+spdlog::info("Waiting for client...");
+```
 
-* Process management:
-    
-    * `forc()`
-    * `exec()`
-    * `getpid()`
+---
 
-* Sleeping:
+```cpp
+#include <arpa/inet.h>
+```
 
-    * `sleep()`
-    * `usleep()`
+This provides networking utilities such as:
 
-* Pipes:
+```cpp
+inet_pton()
+htons()
+```
 
-    * `pipe()`
+We will use these to prepare IP addresses and ports in the format expected by the socket API.
 
-* File descritor operations:
+---
 
-    * `dup()`
-    * `dup2()`
+```cpp
+#include <unistd.h>
+```
 
-Whether we will need these operations later, I do not know, but I still, I felt the need to write them down...
+On Unix-like systems this provides functions such as:
 
+```cpp
+read()
+write()
+close()
+```
 
-#### IP, Port and Socket
+For this lesson, the important one is:
 
-Some of the biggest concepts in networking in general. I mean, without understanding these 3 meanings, going forward, at least in TCP networking, is going to be really hard. So, what do they mean?
+```cpp
+close()
+```
 
-**IP** - stands for Internet Protocol. Most of the connected devices to a network have at least 1 IP address.. Why do devices need it? 
+We will later see why sockets work with functions that also operate on files and other OS resources.
 
-The main idea is that we want to have some ability to distinguish on the network which device is which. Imagine that there is a server (right now do now overthink about what it is, and imagine it like a simple box that clients can connect to) that is an actual chatroom, where clients can connect to and text with each other. If client A sends a message dedicated to client B, how can a server know how to make it so that only the client B would receive and not others? This is where the IP comes into play.
+---
 
-If a client has an IP, now it can be distinguished from that 100 different clients. IP is essentailly like an ID, which allows network to identify devices.
+# IP Addresses, Ports, and Sockets
 
-First of all, IP is just a simple number. It's format is this: XXX.XXX.XXX.XXX. A common example of a real IP address: 192.168.1.1. Let's understand, why IP has the format the way it has.
+Before understanding:
 
-Computers do not think about IP addresses the same way we look at them. For computers, IP is a 32 bit number that is comprised of 0s and 1s. Again, for example, 192.168.1.1 IP address is for one device, 192.168.1.2 is for another device, 200.200.200.200 is for some other device. Because there are 32 bit, in total there are $2^{32} = 4,294,967,295$ different possible IP addresses. 
+```cpp
+socket()
+bind()
+listen()
+accept()
+connect()
+```
 
-You might ask "Why only something over 4.2 billion addresses, aren't there more unique devices now?". Well, the answer is yes, but in the 1970s, when computer networking was literally in the child stage, engineers thought that 32 bits will be enough for all the devices that will ever to be. Or they were like "we do not have time to think about it, let's leave for future generations to solve...". Just to make you feel safer, now, there is a 128 bit address, but we will talk about it in the later lessons.
+we need three concepts:
 
-Going back to the IP format. Remember how I said that computers see IP addresses in binary, let's see how it sees some random IP address:
+1. **IP address**
+2. **Port**
+3. **Socket**
 
-$
-    192.168.1.42 = 11000000.10101000.00000001.00101010
-$
+---
 
-To better understand it, let's display the same stuff vertically:
+# IP Addresses
 
-$
-    \begin{aligned}
-        192 & = 11000000 \\
-        168 & = 10101000 \\
-        1 & = 00000001 \\
-        42 & = 00101010
-    \end{aligned}
-$
+An IP address identifies a network interface/addressable host location in an IP network so packets can be routed to the correct destination.
 
-PS. to know how to convert binary to decimal, just watch [this simple YouTube short](https://www.youtube.com/shorts/HRfpUqWn7rs). For slightly longer explanations:
+For this lesson we use IPv4.
 
-* [Binary to Decimal](https://www.youtube.com/watch?v=VLflTjd3lWA&list=PL0o_zxa4K1BXCpQbUdf0htZE8SS0PYjy-)
-* [Decimal to Binary](https://www.youtube.com/watch?v=rsxT4FfRBaM)
+An IPv4 address contains **32 bits**.
 
-As you can see, this IP address can be seen as 4 groups (sections) of 8 bit. 8 bits comprise a single **byte** (or octet in networking). So IP address can be seen as a group (section) of 4 bytes.
+A familiar example is:
 
-Why use dots to separate this 32 bit number into 4 different 8 bit numbers. The answer is because it was only desgned this way so that we could easier interpret it. There is no hidden reason behind, only that it is easier for us. For computers, it does not matter, the computers always sees IP addresses as a 32 bit number. The formating is just for us. 
+```text
+192.168.1.42
+```
 
-n the previous example I showed how this number 192.168.1.42 looks in binary, but what if every section was all 1s? If a section of 8 bits is all 1s, the number is going to be equal to 255, the largest number that can be comprised of 8 bits. If our 32 bit IP address was all 1s, then the IP would be 255.255.255.255, if it is all 0s, then it is 0.0.0.0.
+The dots are human-readable notation.
 
-For now I think that is enough to know about the IP address for this lesson. What I want you to understand is that IP is just a simple number comprised of 32 bits.
+The same value can be written in binary:
 
-**Port** is a logical communication endpoint used by the transport layer (such as TCP or UDP (I will explain what they are later)) to identify a specific program on a service running on a device.
+```text
+192      168      1        42
 
-A grea analogy for IPs and ports is imagine a street with apartment buildings. Each building has a unique number assigned to it so that a building could be identified on the stree. Also, each apartment in a given building has a unique number so that it could be identified in that building. In this analogy, the building number is the IP and the apartment number is the port:
+11000000 10101000 00000001 00101010
+```
 
-| Networking Concept | Real-World Analogy | Purpose |
-|--------------------|--------------------|---------|
-| **IP Address** | Building address (e.g., 123 Main St.) | Identifies the destination device (building) on the network. |
-| **Port** | Apartment number (e.g., Apt. 12) | Identifies the specific application or service (apartment) within the device. |
-| **IP + Port** | Full address: 123 Main St., Apt. 12 | Identifies the exact communication endpoint (application on a device). |
+or:
 
-There can be a total of 65536 TCP ports and additional 65536 UDP ports (again, we will talk about them later).
+```text
+192.168.1.42
 
-We need ports, because a single device might have multiple running applications, so if you want to target a specific application you would need to know a port to it. For example port 10,000 might be an endpoint to service that given 2 numbers outputs their sum, port 10,001 is a service that that deletes all your harddrive data (I hope you will not create a program like that...).
+11000000.10101000.00000001.00101010
+```
 
-With ports we have a way to reach running programs or services on a device, given that they have are listening (have opened) the corresponding ports.
+Each group contains 8 bits.
 
-You might ask "what is an open port?". An open port is a network port which the running application is actively listening for incoming connections. An even simpler explanation is that a port becomes open when a program tells the OS that "I am listening on this port, send incoming connection to me".
+```text
+8 bits = 1 byte = 1 octet
+```
 
-Another analogy is that if a house is an IP, then all the ways you can get inside that house are ports (front / back doors, windows, garage and etc.).
+Therefore:
 
-```C++
+```text
+IPv4
+
+4 octets × 8 bits
+        =
+      32 bits
+```
+
+Each octet can represent values from:
+
+```text
+0
+```
+
+to:
+
+```text
+255
+```
+
+because:
+
+```text
+11111111₂ = 255
+```
+
+That gives us addresses ranging syntactically from:
+
+```text
+0.0.0.0
+```
+
+through:
+
+```text
+255.255.255.255
+```
+
+There are:
+
+```text
+2^32 = 4,294,967,296
+```
+
+possible 32-bit bit patterns.
+
+That does **not** mean all 4,294,967,296 values can be assigned freely to devices. IPv4 contains reserved, special-purpose, private, multicast, loopback, and other address ranges.
+
+For now, the important mental model is:
+
+```text
+IPv4 address
+      │
+      ▼
+32-bit value used as part of identifying
+and routing network communication
+```
+
+---
+
+# Loopback
+
+Our programs use:
+
+```cpp
+constexpr std::string_view SERVER_IP = "127.0.0.1";
+```
+
+`127.0.0.1` is part of the IPv4 **loopback** range.
+
+Loopback traffic stays on the local machine.
+
+So:
+
+```text
+127.0.0.1
+```
+
+basically means:
+
+```text
+this computer
+```
+
+for our purposes.
+
+Our client uses:
+
+```text
+127.0.0.2
+```
+
+which is also inside the IPv4 loopback range on typical Unix-like systems.
+
+That lets us give the client and server visually different local addresses while keeping all communication on the same computer.
+
+---
+
+# Ports
+
+An IP address gets network traffic to the correct host/interface.
+
+But a computer may have many networked applications running simultaneously.
+
+For example:
+
+```text
+Computer
+│
+├── web server
+├── game server
+├── SSH server
+├── database
+└── our Ping Pong server
+```
+
+The operating system therefore needs another value to help identify the transport-layer endpoint that should receive the traffic.
+
+That value is a **port number**.
+
+A port is a 16-bit unsigned number:
+
+```text
+0 - 65535
+```
+
+Therefore there are:
+
+```text
+65,536
+```
+
+possible port numbers for TCP, and UDP has its own 16-bit port-number space.
+
+A useful analogy is an apartment building:
+
+```text
+IP address = building address
+Port       = apartment number
+```
+
+For example:
+
+```text
+127.0.0.1:8080
+```
+
+can be imagined as:
+
+```text
+127.0.0.1     :     8080
+     │                 │
+     ▼                 ▼
+ building          apartment
+```
+
+More technically:
+
+```text
+IP address + port
+        │
+        ▼
+transport endpoint address
+```
+
+Our server uses:
+
+```cpp
 constexpr int PORT = 8080;
 constexpr std::string_view HOST = "127.0.0.1";
 ```
 
-I decided to make them constants for this program, because during it's lifetime, these 2 values are not going to change.
+so its local endpoint is:
 
+```text
+127.0.0.1:8080
+```
 
-The last concept that is the integral part in a lot of networking is socket.
+---
 
-**Socket** is an object created by the OS that represents one endpoint of a network connection. When I first read this definition, I still was not able to understand the meaning of a socket, but once I read a telephone example I clearly got it. To be honest, this will be a telephone + apartment building example.
+# What Does "Open Port" Mean?
 
-The idea is this. Imagine that there are N apartment buildings with M apartments in each building. The are people living in apartments. So each person can be identified with a building ID (street name + building nr.) and an apartment number. There is a special telephone made for these buildings, where instead of normal numbers, you just enter the building ID and an apartment number. So if a person A, that is living in a building 10 and apartment 5, wants to call a person B that is living in building 4 and apartment 17, then the person A will have to dial 4.17 number into his phone. Person B sees that a number 10.5 is calling and answers the phone. This way people can call each other that live in these buildings.
+People often say:
 
-In this example:
+> Port 8080 is open.
 
-| Networking Concept | Apartment Analogy |
-| ------------------ | ----------------- |
-| **IP Address** | The **building ID** (street + building number). Identifies which building the communication should be delivered to. |
-| **Port** | The **apartment number**. Identifies which apartment (application (in this example a person)) inside the building should receive the communication. |
-| **Socket** | The **telephone inside the apartment**. It is the communication endpoint used to make and receive calls (network messages). |
-| **Application** | The **person living in the apartment**. The application processes the received data and generates responses. |
+A port is not literally a physical hole that becomes open.
 
-The communication flow can be visualized as:
+For TCP, this usually means that the operating system currently has a socket listening for incoming connections on an address involving that port.
 
-    Person A
-    (Building 10, Apartment 5)
-            │
-        Telephone (Socket)
-            │
-            ▼
-        Dial 4.17
-            │
-            ▼
-    Building 4 (IP Address)
-            │
-    Apartment 17 (Port)
-            │
-    Telephone (Socket)
-            │
-            ▼
-    Person B (Application)
+Conceptually:
 
-Now we know what all 3 major concepts mean in TCP networking. But just to glide by it one more time:
+```text
+Incoming TCP connection
+        │
+        │ destination port 8080
+        ▼
+Operating System
+        │
+        ▼
+Listening socket
+127.0.0.1:8080
+        │
+        ▼
+Server application
+```
 
-| Networking Concept | Meaning |
-| ------------------ | ------- |
-| **IP Address** | A unique 32-bit number assigned to a device on an IPv4 network. It identifies the destination device for network communication. |
-| **Port** | A 16-bit number (0–65535) that identifies a specific application or service running on a device. A port is considered **open** when an application is actively listening on it. |
-| **Socket** | An operating system object that represents one endpoint of a network communication channel. Applications use sockets to send and receive network data. |
+The important point is that ports are part of the networking protocol. They are not physical objects inside the computer.
 
-Socket is created using this:
+---
 
-```C++
+# Sockets
+
+Now we reach the most important abstraction in this lesson.
+
+A **socket** is an operating-system networking object used by a process as an endpoint for network communication.
+
+Our server creates one using:
+
+```cpp
 int server_socket = socket(AF_INET, SOCK_STREAM, 0);
 ```
 
-Notice that the `server_socket` is an integer. It is because this function returns a descriptor that is essentially an ID to an actual object created somewhere else. For those that have read my opengl lessons, it is very similar to the way that many OpenGL objects or functions are accessable via the integer ID because that ID refers to that to that specific object that is managed internally by OpenGL. Same is here with a `server_socket` that is an ID to an actual object managet internally by OS.
+At first this looks strange.
 
-`AF_INET` tells that we want a socket that is of type IPv4. Remember that there is also IPv6.
+If `socket()` creates a socket, why does it return an `int`?
 
-`SOCK_STREAM` tells that we want a TCP type of communication. Remember that there is also UDP (also, we will talk about it in later lessons).
+```cpp
+int server_socket
+```
 
-`0` tells which protocol to use. A protocol is a simple set of rules that 2 devices agree to use when communicating. Different protocols define different rules. For TCP connection we almost always use `0`.
+Shouldn't a socket be some giant C++ networking object?
 
+The answer is that the integer is **not the actual socket object**.
 
-#### Server Logic
+On Unix-like systems, it is a **file descriptor**.
 
-```C++
+A better mental model is:
+
+```text
+                         USER SPACE
+
+                    C++ Application
+              ┌────────────────────────┐
+              │                        │
+              │       sock = 3         │
+              │          │             │
+              └──────────┼─────────────┘
+                         │
+                  file descriptor
+                         │
+                         │
+═════════════════════════╪═════════════════════════
+                  User ↕ Kernel
+                         │
+                         ▼
+                        KERNEL
+
+              ┌────────────────────────┐
+              │      Socket Object     │
+              ├────────────────────────┤
+              │  Protocol state        │
+              │  Local/remote address  │
+              │  Send/receive buffers  │
+              │  Connection state      │
+              │  Other metadata        │
+              └────────────────────────┘
+```
+
+The application keeps a small integer.
+
+The kernel manages the networking object.
+
+---
+
+# `socket()`
+
+Consider:
+
+```cpp
+int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+```
+
+There are three arguments.
+
+## `AF_INET`
+
+```cpp
+AF_INET
+```
+
+selects the IPv4 address family.
+
+Later we will encounter:
+
+```cpp
+AF_INET6
+```
+
+for IPv6.
+
+---
+
+## `SOCK_STREAM`
+
+```cpp
+SOCK_STREAM
+```
+
+requests a reliable, ordered, stream-oriented socket type.
+
+With the Internet protocol family, this is normally used with TCP.
+
+TCP provides a **byte stream**.
+
+That distinction will become very important later.
+
+TCP does not preserve application message boundaries.
+
+If we do:
+
+```cpp
+send(fd, "Hello", 5, 0);
+send(fd, "World", 5, 0);
+```
+
+the receiver should **not** assume that two calls to `recv()` will necessarily return:
+
+```text
+Hello
+World
+```
+
+It might observe the bytes in different chunks.
+
+The stream itself is logically:
+
+```text
+HelloWorld
+```
+
+We will handle this properly in later lessons.
+
+---
+
+## Protocol `0`
+
+The final argument is:
+
+```cpp
+0
+```
+
+This tells the OS to select the default protocol appropriate for the chosen address family and socket type.
+
+With:
+
+```cpp
+AF_INET
+SOCK_STREAM
+```
+
+that normally means TCP.
+
+So:
+
+```cpp
+socket(AF_INET, SOCK_STREAM, 0)
+```
+
+can roughly be read as:
+
+```text
+Create an IPv4 stream socket
+using the default matching protocol.
+```
+
+---
+
+# Preparing an Address
+
+Creating the socket does not yet tell the kernel which local IP address and port our server should use.
+
+For that we create:
+
+```cpp
 sockaddr_in server_addr{};
+```
+
+`sockaddr_in` represents an IPv4 socket address.
+
+We then configure it:
+
+```cpp
 server_addr.sin_family = AF_INET;
 server_addr.sin_port = htons(PORT);
 ```
 
-These lines create a C (language) struct that essentially stores and IPv4 socket address. `sockaddr_in server_addr{};` initializes this struct to default values. `server_addr.sin_family = AF_INET;` tells that this socket address should be IPv4.
+Conceptually:
 
-`server_addr.sin_port = htons(PORT);` this sets the socket address port. But what does `htons()` do?
+```text
+server_addr
 
-`htons()` means **Host TO Network Short**. This function converts 16-bit integer (in C++ it is of type `short`) to a network byte order. Why can't we do simply `server_addr.sin_port = PORT;`? It all comes down to a to this concept of little-endian and big-endian. You can read about this concept [here](https://saliktariq.medium.com/big-endian-and-little-endian-systems-in-c-significance-code-differences-and-performance-487752a20496). In short, the idea behind it is that most of the computers nowadays store bytes using the little-endian format, while network protocols use big-endian format. Why network protocols use big-endian? It was also a design choice in the beginning of network programming. Just know that network protocols use big-endian when defining a port.
-
-These 3 lines are pretty clear what they mean now, but I still had one question when learning this. What is the `sin` prefix in `sin_family` and `sin_port`? I do not know why they needed to add this prefix in the first place, but in is the abbreviation of **socket internet**.
-
-```C++
-inet_pton(AF_INET, HOST.data(), &server_addr.sin_addr);
+family = IPv4
+port   = 8080
+IP     = not set yet
 ```
 
-This line converts the human readable IP address into the binary format that the OS could understand. So basically this:
+---
 
-```C++
+# Why `htons()`?
+
+We write:
+
+```cpp
+server_addr.sin_port = htons(PORT);
+```
+
+instead of:
+
+```cpp
+server_addr.sin_port = PORT;
+```
+
+`htons` means:
+
+```text
+host to network short
+```
+
+It converts a 16-bit value from the machine's host byte order into **network byte order**.
+
+Network byte order is big-endian.
+
+So:
+
+```text
+PORT
+ │
+ │ host representation
+ ▼
+htons()
+ │
+ │ network byte order
+ ▼
+sin_port
+```
+
+You do not need to memorize the byte-level details yet.
+
+For now:
+
+```cpp
+sin_port = htons(PORT);
+```
+
+means:
+
+> Store this port in the byte order expected by the networking API.
+
+---
+
+# Converting the IP Address
+
+Our IP address begins as text:
+
+```cpp
+constexpr std::string_view HOST = "127.0.0.1";
+```
+
+But `sockaddr_in` does not store the address as the string `"127.0.0.1"`.
+
+We convert the textual representation using:
+
+```cpp
+inet_pton(
+    AF_INET,
+    HOST.data(),
+    &server_addr.sin_addr
+);
+```
+
+`inet_pton` can be read as:
+
+```text
+presentation → network
+```
+
+Conceptually:
+
+```text
 "127.0.0.1"
+      │
+      ▼
+  inet_pton()
+      │
+      ▼
+binary IPv4 address
+      │
+      ▼
+server_addr.sin_addr
 ```
 
-is converted into:
+After this, `server_addr` contains the information necessary to describe:
 
-```C++
-01111111 00000000 00000000 00000001
+```text
+127.0.0.1:8080
 ```
 
-and we assign the convertes result to `server_addr.sin_addr` variable. `AF_INET` tells that this address should be converted to IPv4 format.
+---
 
+# `bind()`
 
-#### Binding
+We now have two separate things:
 
-```C++
-bind(server_socket, (sockaddr*)&server_addr, sizeof(server_addr));
+```text
+Socket object
+
+and
+
+Address:
+127.0.0.1:8080
 ```
 
-Before I give you the explanation on what is binding, I will take a step back and ask you: what do we have now?
+The socket has been created, but we have not yet assigned that local address to it.
 
-Right now we have a socket descriptor `server_socket` that is just a simple number and `server_addr` struct that is containing necessary configuration information for our socket. The problem is that these 2 variables are not "connected" to each other. As of now we have a socket and a configuration as 2 separate things.
+That is what `bind()` does.
 
-Now, our current socket looks like this:
-
-    --------------
-    |            |
-    | TCP socket |
-    | No address |
-    |            |
-    -------------
-
-What we want is this:
-
-    -----------------
-    |               |
-    | TCP socket    |
-    | IP: 127.0.0.1 |
-    | Port: 8080    |
-    |               |
-    -----------------
-
-What `bind()` does is exactly this. It associates the created socket with a defined IP address and a port. It kind of connects `server_addr` info with `server_socket`.
-
-I remember that when I was learning this I had this question: "Why `socket(AF_INET, SOCK_STREAM, 0);` functionality does not allow setting port and ip to the created socket descriptor?". The idea is that because with this line:
-
-```C++
-int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+```cpp
+bind(
+    server_socket,
+    reinterpret_cast<sockaddr*>(&server_addr),
+    sizeof(server_addr)
+);
 ```
 
-a socket is created that only knows 3 things:
+Conceptually:
 
-* Address family: IPv4 (AF_INET)
-* Type: TCP (SOCK_STREAM)
-* Protocol: TCP
+```text
+Before bind()
 
-These 3 things are stored somewhere as a single separate concept managed by OS. More precisely OS creates a kernel object that knows only those 3 aforementioned things. You only have a single descriptor ID that associates it with a real kernel object (I will explain what a kernel is soon). But this:
+Socket
+┌──────────────────┐
+│ IPv4 TCP socket  │
+│                  │
+│ no chosen local  │
+│ address yet      │
+└──────────────────┘
 
-```C++
-sockaddr_in server_addr{};
-server_addr.sin_family = AF_INET;
-server_addr.sin_port = htons(PORT);
+
+Address structure
+┌──────────────────┐
+│ 127.0.0.1        │
+│ 8080             │
+└──────────────────┘
 ```
 
-is a different concept, that deals with ports and IPs. You combine them with `bind()` to tell the OS to "Associate this with this.", and that's it. Do not overthink too much about this.
+After:
 
-Up to this point we have a proper set up socket that is ready to be used. Let's learn how to use it.
+```cpp
+bind(...)
+```
 
+we have associated the socket with:
 
-#### Listening
+```text
+127.0.0.1:8080
+```
 
-```C++
+Conceptually:
+
+```text
+Socket
+┌──────────────────┐
+│ IPv4 TCP socket  │
+│                  │
+│ local:           │
+│ 127.0.0.1:8080   │
+└──────────────────┘
+```
+
+One subtle point is important:
+
+`bind()` does **not** connect to another computer.
+
+It assigns a **local address** to a socket.
+
+---
+
+# Why Is the Address Separate From `socket()`?
+
+You might wonder why we do this:
+
+```cpp
+socket(...)
+```
+
+then:
+
+```cpp
+bind(...)
+```
+
+instead of something like:
+
+```cpp
+socket(AF_INET, SOCK_STREAM, "127.0.0.1", 8080);
+```
+
+The socket API separates:
+
+```text
+Create networking endpoint
+```
+
+from:
+
+```text
+Assign local address
+```
+
+This makes the socket interface flexible.
+
+Also, not every socket needs an explicit `bind()` call from the application.
+
+For example, a normal TCP client can simply call:
+
+```cpp
+connect()
+```
+
+and the OS can automatically choose an appropriate local IP address and ephemeral local port.
+
+We explicitly bind our client in this lesson only because having known client and server endpoints makes the diagrams easier to understand.
+
+---
+
+# `listen()`
+
+Our server now has:
+
+```text
+IPv4 TCP socket
+local address: 127.0.0.1:8080
+```
+
+But it is not yet a listening socket.
+
+We do:
+
+```cpp
 listen(server_socket, 1);
 ```
 
-This line tells to OS that this socket `server_socket` is a server socket and because of it, start listening for incoming connections. 
+`listen()` transitions the socket into a **listening socket**.
 
-Before this line was called, our socket was just a simple TCP endpoint. But this endopoint still does not have a purposeful reason on why it exists. `listen()` is the function that makes our socket capable of listening for incoming clients, meaning that now, our socket has a purpose. 
+Conceptually:
 
-This funciton does not create a separate thread or repeatedly check for connection. It tells the kernel that if a new connections arrives on this socket, queue them until my program processes them further.
+```text
+socket()
+   │
+   ▼
+TCP socket
+   │
+   ▼
+bind()
+   │
+   ▼
+TCP socket with local address
+   │
+   ▼
+listen()
+   │
+   ▼
+TCP listening socket
+```
 
-The kernel object is the real heavy lifter here, because it internally does all of the work like:
+The kernel can now handle incoming TCP connection attempts for this listening endpoint.
 
-* receiving TCP SYN packets (will talk more about them in the future lessons)
-* completing the TCP handshake
-* maintaining a queue of pending connecitons
+Importantly:
 
-Our server program does not have to think about these operations, that is why it is great that we have only a descriptor, you do not have to think about all the under the hood stuff.
+```cpp
+listen(...)
+```
 
-What does `1` mean? It is a simple backlog essentially telling how many connections are pending. If it is set to 1, then there can only be a single pending connection. Any more clients trying to connect are not guaranteed to succeed. The outcome depends on the OS and how the TCP is set up on that OS. Any more connections than the backlog might:
+does **not** mean:
 
-* timeout
-* connection might be refused
-* the client may retry automatically
+> Stop the program here and wait for someone.
 
-all of these and others are possible, but it is the OS that decides what's going to happen next with that connection.
+`listen()` normally returns immediately.
 
-Also, notice one thing, `listen()` is not a blocking operation, meaning that the code following this function will be executed right after this function completes it's job. This function completes the job really fast, because it essentially is just a call to the kernel object "put this socket into a listening mode".
+It configures the socket for passive connection handling.
 
+The operation that normally waits for a connection is:
 
-#### Accepting a client
+```cpp
+accept()
+```
 
-```C++
+---
+
+# What Does the Backlog Mean?
+
+We use:
+
+```cpp
+listen(server_socket, 1);
+```
+
+The second argument is called the **backlog**.
+
+A simplified mental model is:
+
+> It controls the requested limit for how many completed/pending incoming connections may wait to be accepted.
+
+The exact behavior is operating-system dependent, and kernels may interpret or adjust this value.
+
+So avoid thinking of:
+
+```cpp
+listen(fd, 1)
+```
+
+as a guarantee that:
+
+> Exactly one client can connect and client number two will immediately fail.
+
+That is too simplistic.
+
+For this lesson, all we need is:
+
+```text
+listen(socket, backlog)
+
+                 │
+                 ▼
+
+Allow incoming TCP connections
+and maintain a queue for connections
+waiting for the application to accept them.
+```
+
+---
+
+# `accept()`
+
+Now we reach our first important blocking operation:
+
+```cpp
 sockaddr_in client_addr{};
 socklen_t client_len = sizeof(client_addr);
 
-int client_socket = accept(server_socket, (sockaddr*)&client_addr, &client_len);
+int client_socket = accept(
+    server_socket,
+    reinterpret_cast<sockaddr*>(&client_addr),
+    &client_len
+);
 ```
 
-In order to accept a client we first need create an uninitialized `sockaddr_in` struct. Remember that this struct stores IP address (IPv4 or IPv6) and port (everything that we need to know about the client). We need this struct to store information about connected client.
+If no completed connection is available, a blocking `accept()` waits.
 
-Before accept, `client_address` looks like this:
+Conceptually:
 
-* IP Address: -
-* Port: -
+```text
+Server
 
-After the `accept()` the `client_address` might look like this:
+listen()
+   │
+   ▼
+accept()
+   │
+   │ waiting...
+   │ waiting...
+   │ waiting...
+   │
+   │          Client
+   │             │
+   │             ▼
+   │          connect()
+   │             │
+   ▼             │
+connection available
+   │
+   ▼
+accept() returns
+```
 
-* IP Address: XXX.XXX.XXX.XXX (remember, that this is actually a 32bit number)
-* Port: XXXXX
+---
 
+# Why `client_addr`?
 
-```C++
+We create:
+
+```cpp
+sockaddr_in client_addr{};
+```
+
+so the kernel has somewhere to write information about the connected peer.
+
+After `accept()`, it can contain something such as:
+
+```text
+IP:   127.0.0.2
+Port: 9000
+```
+
+---
+
+# Why `client_len`?
+
+We also pass:
+
+```cpp
 socklen_t client_len = sizeof(client_addr);
 ```
 
-This line, at first, I did not understand. This line tells to the kernel that the buffer size of the `client_addr` is `sizeof(client_addr)`. In C++, `sizeof()` returns the size of an object or a struct in bytes. We need to know the size because of the way we use `client_addr` in `accept()` function. This is because `accept()` receives a pointer to the client buffer and pointers do not bring with themselves information about the size.
+and then:
 
-I also had a question: "Why do we need to pass the size, when we can just have this function: `int accept(int sockfd, sockaddr_in* addr);`?". After some additional reading I understood that this is because mainly of 2 reasons:
-
-1) When sockets were desgined, the idea was that there should be a single function that can take any information about incoming clients. Meaning that the client could be using Ipv4 or Ipv6 (in old times people did not think abput Ipv6). Socket API was designed in such way to support many addresses families. There can be many different client configurations that use IPv4, IPv6, Unix sockets, raw ethernet.
-2) Because the sockets are written in C language, they have one drawback: functions in C cannot be overloaded. Meaning a function with a name X cannot be overloaded with different signatures like different arguments cound, or different return type.
-
-If both of these were designed a bit different, maybe then you could have this:
-
-* `int accept(int sockfd, sockaddr_in* addr);` 
-* `int accept(int sockfd, sockaddr_in6* addr);` 
-* `int accept(int sockfd, sockaddr_un* addr);` 
-* `int accept(int sockfd, sockaddr_ll* addr);`
-
-
-I hope that I gave you a proper explanation about why sockets need to know the sizes. Now let's move towards accepting the client.
-
-```C++
-int client_socket = accept(server_socket, (sockaddr*)&client_addr, &client_len);
+```cpp
+&client_len
 ```
 
-This is the place that essentially is telling the kernel to wait for the client connection. This is the first blocking operation of our program, meaning that until a client will try to connect to this server, any code below this line is not going to be executed.
+to `accept()`.
 
-How does it work. Well, first, let's look at the arguments:
+The socket API supports multiple address families, whose address structures may have different sizes.
 
-* `server_socket` tells which socket to use for listening (which kernel program to use).
-* `(sockaddr*)&client_addr` a pointer to the client address. Once the connection comes, all the information about the client will be stored in this variable.
-* `&client_len` as mentioned before, we need to know the size of the incoming client to correctly populate the client address buffer.
+`accept()` therefore receives:
 
-Notice, that `accept()` returns another socket descriptor. This time, this socket descriptor `client_socket` is representing a client. So now, we have 2 different sockets:
+```text
+pointer to address memory
++
+size of that memory
+```
 
-1. `server_socket` representing the server side
-2. `client_socket` representing the client side
+Conceptually:
 
-If we went back to the street and apartment buildings communication analogy, we would be at a place where a server (a person living in an apartment that is set up as a server) is listening through a phone for any connections, and if it hears any client it accepts and processes it. 
+```text
+client_addr
+┌─────────────────────────┐
+│ memory for peer address │
+└─────────────────────────┘
+             ▲
+             │
+       client_len
+   tells the kernel how
+   much space is available
+```
 
-The final question I have about `listen()` and `accept()` was: "In general, what is the difference between these 2?". To put it simply, `listen()` tells to the kernel: "hey, start listening, do not think about what to do if a client tries to connect, but just listen". While 'accept()` is the place where you actually start dealing with a client, once the client (or anything else) tries to connect. This is one of the reasons why `accept()` is blocking. The application is waiting (listening) until anything tries to connect.
+On return, `client_len` is updated to describe the size of the address actually written.
 
-To put it short:
+---
 
-    ------------
-    |          |
-    | listen() |  --> start listening, but do not do anything else
-    |          |
-    ------------
+# Why Does `accept()` Return Another Socket?
 
-    ------------
-    |          |
-    | accept() |  --> if anyone tries to connect, start processing
-    |          |
-    ------------
+This is one of the most important ideas in TCP server programming.
+
+We already have:
+
+```cpp
+server_socket
+```
+
+Why do we need:
+
+```cpp
+client_socket
+```
+
+as well?
+
+Because the listening socket has a different job from a connected socket.
+
+```text
+server_socket
+     │
+     │ listens for NEW connections
+     │
+     ▼
+  accept()
+     │
+     ▼
+client_socket
+     │
+     │ communicates with ONE connection
+     ▼
+ send()/recv()
+```
+
+The listening socket remains available for accepting additional connections.
+
+Each accepted TCP connection receives its own connected socket.
+
+For our tiny program we only accept one connection, but the distinction is fundamental.
+
+---
+
+# The Three Socket Objects
+
+Once the connection is established, our example contains **three socket objects across the two processes**.
+
+```text
+CLIENT PROCESS                         SERVER PROCESS
 
 
-#### Dealing with a Client
+                                      ┌──────────────────────┐
+                                      │   server_socket      │
+                                      │                      │
+                                      │ 127.0.0.1:8080       │
+                                      │                      │
+                                      │ LISTENING            │
+                                      └──────────┬───────────┘
+                                                 │
+                                              accept()
+                                                 │
+                                                 ▼
 
-We started listening, and are waiting for anyone to connect. Let's see what we do after someone tries to connect.
+┌──────────────────────┐              ┌──────────────────────┐
+│      socket_fd       │              │    client_socket     │
+│                      │              │                      │
+│ local:               │              │ local:               │
+│ 127.0.0.2:9000       │              │ 127.0.0.1:8080       │
+│                      │              │                      │
+│ remote:              │              │ remote:              │
+│ 127.0.0.1:8080       │              │ 127.0.0.2:9000       │
+└──────────┬───────────┘              └──────────┬───────────┘
+           │                                     │
+           │                                     │
+           └════════ TCP CONNECTION ═════════════┘
+```
 
-```C++
+So:
+
+| Socket | Process | Purpose |
+|---|---|---|
+| `socket_fd` | Client | Client side of the TCP connection |
+| `server_socket` | Server | Listens for new connections |
+| `client_socket` | Server | Server side of this particular TCP connection |
+
+Only two of those are the endpoints of the established connection:
+
+```text
+client socket                       server connected socket
+
+127.0.0.2:9000  <====== TCP ======> 127.0.0.1:8080
+```
+
+The listening socket is separate.
+
+---
+
+# `recv()`
+
+After `accept()` returns, the server has a connected socket:
+
+```cpp
+client_socket
+```
+
+We can receive data from it.
+
+```cpp
 char buffer[1024]{};
-recv(client_socket, buffer, sizeof(buffer), 0);
+
+ssize_t received = recv(
+    client_socket,
+    buffer,
+    sizeof(buffer),
+    0
+);
 ```
 
-This is how we "process" the client once it connects. 
+The buffer begins as:
 
-Initially we need to create a buffer that could store the information the client sends. We create an emtpy buffer (by using default initialization `{}`) that at first looks like this:
+```text
+buffer
 
-    buffer
-    +----+----+----+----+-----+
-    |  0 |  0 |  0 |  0 | ... |
-    +----+----+----+----+-----+
+┌────┬────┬────┬────┬────┬─────────┐
+│  0 │  0 │  0 │  0 │  0 │   ...   │
+└────┴────┴────┴────┴────┴─────────┘
+```
 
-Then we call `recv()`. Since we have a client socket's descriptor, we use it to tell the kernel "read data from this connected socket". That is, essentially, what the `recv()` does.
+If the client sends:
 
-We store that read data into `buffer` object.
+```text
+Ping
+```
 
-I noticed (at least for myself) that before moving any further, I think that right now the best thing to do, would be to analize how sockets work internally. So let's understand them properly before we move forward.
+then `recv()` may copy those bytes into our buffer:
 
+```text
+buffer
 
-### Sockets (Intuition)
+┌─────┬─────┬─────┬─────┬────┬─────────┐
+│ 'P' │ 'i' │ 'n' │ 'g' │  0 │   ...   │
+└─────┴─────┴─────┴─────┴────┴─────────┘
+```
 
-Let's get back to sockets, kernels and everything else related to this topic. At first, I think that we should analyze the kernel: what is it? 
+More importantly, `recv()` returns the number of bytes actually received.
 
-The computer is organized something like this:
+For example:
 
-    ┌───────────────────────────────────────┐
-    │              User space               │
-    │                                       │
-    │  Chrome     Calculator   Your C++ app │
-    │                                       │
-    ├───────────────────────────────────────┤
-    │                KERNEL                 │
-    │                                       │
-    │  Processes        Filesystem          │
-    │  Memory           TCP/IP networking   │
-    │  Drivers          Sockets             │
-    │                                       │
-    ├───────────────────────────────────────┤
-    │              Hardware                 │
-    │                                       │
-    │  CPU     RAM     SSD     Network card │
-    └───────────────────────────────────────┘
+```cpp
+received == 4
+```
 
-You can kind of divide it into 3 parts, where each part is going deeper to the actual electricity, transistors and capacitors.
+We should use that value rather than assuming the buffer contains a null-terminated C string.
 
+---
 
-#### User Space
+# What Does `recv()` Actually Mean?
 
-This is where the ordinary and every day programs live. Your browser, calculator, video games, video editors and etc. These programs can use CPU, GPU, RAM but in this space programs do not have an unrestricted access to all the aforementioned things. The main reason why user space exists is to isolate applications and programs to restrict them on what they can and cannot do so that they would not change or modify the protected parts of the system. More, about why the user space exits, will be explained later in this lesson.
+A useful misconception to remove immediately is:
 
+```text
+recv() = start receiving network traffic
+```
 
-#### Hardware
+That is not how it works.
 
-This is the physical part of the computer. CPU, GPU, keyboard, mouse, USB port, HDMI port, SSD card, RAM, motherboard, bits. 
+Network traffic can arrive while your program is doing something completely different.
 
-If we went even deeper, you would see transistors, capacitors, inductors wires and etc.. All of the applications people use every day in the end are just electrical signals and bit states. Everything software does ultimately results in hardware performing physical operations like applying electrical current to a transistor to change a state of a bit.
+The kernel's networking subsystem processes incoming traffic and maintains receive state/buffers for sockets.
 
-In order to understand how sockets work, we do not need to go any deeper to understand how hardware works.
+So a better mental model is:
 
+```text
+Network
+   │
+   ▼
+Network interface
+   │
+   ▼
+Kernel networking stack
+   │
+   ▼
+Socket receive buffer/state
+   │
+   │ recv()
+   ▼
+Your application's buffer
+```
 
-#### Kernel Space
+`recv()` is closer to:
 
-I think that one of the ways to understand what this is, we have to start with an analogy.
+> Give my process some bytes currently available for this socket. If none are available and this is a blocking socket, wait until the operation can make progress or another relevant condition occurs.
 
-Think of the whole computer as a human body. The hardware is the physical body:
+---
 
-    eyes                ->      monitor
-    ears                ->      speakers
-    hands               ->      keyboard / mouse
-    short-term memory   ->      RAM
-    long-term memory    ->      SSD
-    nervous system      ->      buses / electrical connections
+# Why Can `recv()` Block?
 
-Now, imagine your thoughts or your conscience as programs (applications).
+Suppose we call:
 
-You probably would not want every random thought to have unrestricted control over your body. A thought existing in your mind does not mean that it will automatically make your body execute it. There are systems in place between your mind and body that controls what thoughts are executed and which are not. 
+```cpp
+recv(socket_fd, buffer, sizeof(buffer), 0);
+```
 
-The same logic applies to applications. Imagine if you had a buggy calculator, that would for some reason make your CPU overheat and literally melt. That would make a lot of computers often go out of commission due to buggy or malicious applications. Or imagine that a video game would literally have an unrestricted access to all of you RAM (or GPU RAM). In this scenario the game could accidentaly override bits in RAM that literally control the state of your computer (or the state of GPU) and, for example, make your computer turn off, or delete some vital computer memory data.
+but no data is currently available.
 
-Because of the reasons like this modern OS and CPU therefore provides mechanisms that isolate applications from one another and help protect important parts of the system.
+For a normal blocking socket, the calling thread may be put to sleep while it waits.
 
-Like the brain is the connector between the conscience and the body, you also can think kind of the same about the kernel. You can loosely think of the kernel as part of the brain and nervous system connecting the applications to the physical resources of the computer. Kernel managers and protects important resources such as memory, files, processes, networking and hardware devices.
+```text
+Application thread
+       │
+       ▼
+    recv()
+       │
+       ▼
+Receive data available?
+       │
+   ┌───┴───┐
+   │       │
+  yes      no
+   │       │
+   │       ▼
+   │    wait/sleep
+   │       │
+   │   data arrives
+   │       │
+   └───┬───┘
+       ▼
+recv() returns
+```
 
-An important thing to know is that when the application is running, not every operation requires the kernel to be called for help. Most of the application can be executed by the CPU itself, because most of the code probobly does not require privilged access to OS resources. 
+The CPU does not need to waste time executing:
 
-Now, once I read about this, my initial thoughts were: "What is the priviledged access? How to know what is privileged and what is not? So when exactly is the kernel needed and when it's not?" 
-
-
-#### User Space Privileged Access
-
-First of all, a key thing to understand is that nothing in your application code can be executed freely without anyone's control. For example this code:
-
-```C++
-
-int main()
+```cpp
+while (nothing_received)
 {
-    int a = 5;
-    int b = 11;
-    int c = a + b;
-
-    return 0;
+    // repeatedly check forever
 }
-
 ```
 
-if everything was executed without some sort of protection or control, one or more variables present in this program could crash or in any other way harm your computer. Why? Because here we have 3 INT type of variables. Ints are 32 bit. In memory, a single bit is the smallest physical unit of memory. Now imagine if you have some part of the memory that store bits vital to your computer performace. Any of the bits in this program could overwrite it and it could seriously harm your computer performance or even worse crash it. This is why something has to control what your program does. 
+The operating system can suspend the thread and schedule other work.
 
-Remember how previously I said that all the operations performed by the application end up as pure hardware operations? Ultimately, software executes as CPU instructions and interacts with hardware state. However, this does not mean every hardware interaction requires kernel mode. User-mode programs can perform ordinary instructions and access their permitted memory directly. Certain operations—such as modifying page tables or directly controlling protected hardware—require privileged execution and therefore must be performed by the kernel.
+---
 
-To understnad better why priviliged rights are necessary, we first have to understand what path does a program take while it is being executed. Once a program starts to get executed, it follows this path:
+# User Space, Kernel, and Hardware
 
-    C++ program
-        │
-        ▼
-        CPU -----------------> Other hardware
-        │           |         (GPU, SSD, network card,
-        │           |         USB device, accelerator, etc.)
-        │           ▼                      |
-        │-----> does work <-----------------
-                    │
-                    │
-                    ▼    
-            Hardware operations     
+At this point, understanding the basic relationship between our application and the operating system becomes useful.
 
-First thing to know is that all programs are executed using CPU. In CPU itself there are more steps like compilation, but again, the goal of this lesson is not to give an intuition on how C++ works itself, but rather how networking works and what parts of hardware are responsible for what and why.
+A simplified computer model looks like this:
 
-Every program starts by being executed by the CPU, but, for the aforementioned reasons (separation) not every program has the same amount of authority. This is one of the most important ideas for understanding priviliged rights and kernel.
-
-There are 2 execution modes with different priviliged rights levels:
-
-    CPU execution
-    │
-    ├── User mode
-    │   └── restricted privileges
-    │
-    └── Kernel mode
-        └── much higher privileges
-
-The CPU can execude code at different privilege levels. Ordinary applications execute in user mode, where certain operations are restricted. The kernel executes in kernel mode, where it has access to privileged operations that user mode programs cannot directly perform.
-
-But, user mode still has some permissions:
-
-    User mode
-    ├── add numbers                  ✓
-    ├── modify CPU registers         ✓
-    ├── read its permitted memory    ✓
-    ├── write its permitted memory   ✓
-    ├── call functions               ✓
-    ├── execute branches             ✓
-    │
-    ├── access kernel memory         ✗
-    ├── change page tables directly  ✗
-    └── execute privileged CPU ops   ✗
-
-At first, I kind of struggled with the idea that for some reason, some operations can be executed only in user mode, while others have to work in kernel mode? If kernel mode has stricter rules, then why doesn't all operation, no matter how simple they are, get executed in kernel mode?
-
-The reason is that CPUs have predefined permissions, like the ones seen in the above diagram. If we take our simple C++ addition example with 3 integers, even though the variables are stored in memory, accessing them does not normally require entering kernel mode. The CPU executes the program in user mode and is allowed to access memory that belongs to the process. Hardware mechanisms such as virtual memory and the MMU enforce which memory the process is allowed to access.
-
-The CPU can safely allow the program to execute a simple addition. There is essentially no security benefit by doing this:
-
-    Program
-    |
-    | "Kernel, can I add 2 numbers?"
-    |
-    ▼
-    Kernel
-    |
-    | "Yes"
-    |
-    ▼
-    CPU performs addition
-
-The CPU provides hardware-enforced privilege levels. While executing in user mode, certain instructions and memory regions are inaccessible. The OS configures much of this protection, and the CPU enforces it while executing the program. If for every operation we asked the help of the kernel, it would add enormous overhead while protecting nothing useful. 
-
-It is kind of like if before you ate anything, there was additional person that would constantly check what you can and what cannot eat. That is really inefficient, because you yourself can deduce what is safe and what is not to put inside your mouth. If, by any chance you encounter something suspicious or unknown, you can easily ask a specialist, if this is safe or not. The same way CPU knows what operations are safe to perform in user space and what need to directed to kernel space.
-
-To some this section up, you can think that CPU draws a sanbox around your application with operations that can be executed in user space. Anything that requires privileged rights is directed to kernel space:
-
-                USER MODE
-
-     ┌──────────────────────────────┐
-     │       Your C++ process       │
-     │                              │
-     │  CPU registers      ✓        │
-     │  arithmetic         ✓        │
-     │  its memory         ✓        │
-     │  branches           ✓        │
-     │  function calls     ✓        │
-     │                              │
-     └──────────────────────────────┘
-                    │
-            cannot freely cross
-                    │
-       ─────────────┼─────────────
-                    │
-                    ▼
-
-     other processes' memory    ✗
-     kernel memory              ✗
-     arbitrary device control   ✗
-     privileged CPU operations  ✗
-
-
-#### Sockets and Kernel
-
-So why did I bother to write additional sections about user space, kernel space and privileged rights? As mentioned before, we need to build an intuition on what sockets are in kernel space and I think that now it is time when we have enough knowledge to understand it.
-
-A **socket** is not simply a C++ object or an integer in your application. The actual socket is an OS networking object managed by the kernel.
-
-Going back to the code part, we were creating a socket as this:
-
-```C++
-int server_fd = socket(...);
+```text
+┌──────────────────────────────────────────┐
+│                USER SPACE                │
+│                                          │
+│   Browser    Editor    Your C++ Program  │
+│                                          │
+├──────────────────────────────────────────┤
+│                  KERNEL                  │
+│                                          │
+│   Processes      Memory management       │
+│   Filesystems    Networking              │
+│   Drivers        Socket subsystem        │
+│                                          │
+├──────────────────────────────────────────┤
+│                 HARDWARE                 │
+│                                          │
+│   CPU      RAM      SSD      Network NIC │
+│                                          │
+└──────────────────────────────────────────┘
 ```
 
-At first glance it is a bit misleading, because it creates this intuition:
+This is deliberately simplified.
 
-    C++ application
-    |
-    |
-    -->int server_fd
-            |
-            --> socket
+---
 
-But this is not entirely and accurately what is happening. A better mental model is this:
+# User Mode and Kernel Mode
 
-                        USER SPACE
+Ordinary applications normally execute in **user mode**.
 
-                      C++ Application
-                ┌────────────────────────┐
-                │                        │
-                │       sock = 3         │
-                │          │             │
-                └──────────┼─────────────┘
-                           │
-                    file descriptor
-                           │
-                           │
-    ═══════════════════════╪═════════════════════════
-                    User ↕ Kernel
-                           │
-                           ▼
-                         KERNEL
+The kernel executes privileged code in **kernel mode**.
 
-                ┌────────────────────────┐
-                │      Socket Object     │
-                ├────────────────────────┤
-                │  • Protocol state      │
-                │  • Local/remote addr.  │
-                │  • Send/recv buffers   │
-                │  • Connection state    │
-                │  • Other metadata      │
-                └────────────────────────┘
+The distinction is enforced by the CPU together with memory-management mechanisms configured by the operating system.
 
-As mentioned before the interger that your program receives is not the socket itself, it is simply a file descriptor (a small identifier that lets a user to refer to the socket object itself).
+A user-space process can normally:
 
-The socket object lives in kernel memory (RAM) as kernel-managed data structures. The **network card`` is hardware that ultimately sends and receives network traffic.
+```text
+✓ perform arithmetic
+✓ execute branches
+✓ call ordinary functions
+✓ use CPU registers
+✓ read its permitted memory
+✓ write its permitted memory
+```
 
-Netork card (also called NIC (Network Interface Card)) - is the piece of hardware that lets your computer physically communicate with a network.
+But it cannot freely:
 
-Because it is a physical object (hardware device), applications should not have access to directly control it, the kernel is responsible for managing access to it.
+```text
+✗ access kernel memory
+✗ access another process's memory
+✗ modify page tables arbitrarily
+✗ execute privileged CPU instructions
+✗ directly control protected hardware however it wants
+```
 
-This distinction and understanding is very important.
+A useful picture is:
 
-Your application cannot simply take control of the network card and start transmitting arbitrary data through it whenever it wants to. As mentioned earlier, applications live in user space and have restricted priviliges, while the kernel manages the protected resources, such as network card.
+```text
+                     USER MODE
 
-So when your application wants to use network, the basic relationship between your app and the hardware looks like this:
+              ┌────────────────────┐
+              │  Your C++ process  │
+              │                    │
+              │  arithmetic     ✓  │
+              │  registers      ✓  │
+              │  own memory     ✓  │
+              │  branches       ✓  │
+              │  functions      ✓  │
+              └─────────┬──────────┘
+                        │
+                        │ system calls
+                        ▼
+════════════════════════════════════════════
+                        │
+                        ▼
+                   KERNEL MODE
 
-    Application
-        │
-        │ "I want a socket"
-        ▼
-    Kernel
-        │
-        │ creates/manages socket
-        ▼
-    Application receives a way
-    to refer to that socket
+              ┌────────────────────┐
+              │       Kernel       │
+              │                    │
+              │  networking       │
+              │  filesystems      │
+              │  drivers          │
+              │  process control  │
+              │  memory mgmt      │
+              └────────────────────┘
+```
 
-Later when your application wants to perform operations on the created socket, it asks the kernel again:
+This is why ordinary arithmetic does not require asking the kernel:
 
-    Your program
-        │
-        ├── socket()
-        ├── bind()
-        ├── listen()
-        ├── accept()
-        ├── connect()
-        ├── send()
-        ├── recv()
-        └── close()
-            │
-            ▼
-            Kernel
-            │
-            ▼
-    networking subsystem
-            │
-            ▼
-        network device
+```cpp
+int c = a + b;
+```
 
-Why Should You Care About How Sockets Work in Kernel Space?
+The CPU can execute that instruction directly in user mode.
 
-If you skipped the kernel side of the sockets, theoretically you could still continue with this lesson, but the problem of not understanding what sockets truly are would drastically slow down the learning for the later lessons.
+But operations involving protected operating-system resources require controlled transitions into the kernel.
 
-For example, questions like:
-1) Why does socket() return an integer?
-2) Why can recv() block my program?
-3) Where does received data wait before my program reads it?
-4) How can data arrive when my program isn't currently executing recv()?
-5) Why does the operating system know which application should receive an incoming packet?
-6) What exactly does close() destroy?
+---
 
-would be many times harder to explain without knowing the kernel side of the sockets.
+# System Calls and Networking
 
-Before answering these, the final thing we need to learn about in depth are file descriptors:
+Functions such as:
 
+```cpp
+socket()
+bind()
+listen()
+accept()
+connect()
+send()
+recv()
+close()
+```
 
-#### File Descriptors
+ultimately request services from the operating system.
 
-Because this number represents a file descriptor. Conceptually, your application process has something like a table maintained with the help of the kernel:
+Conceptually:
 
-    Your C++ application process
+```text
+Your C++ program
+       │
+       │ socket()
+       │ bind()
+       │ listen()
+       │ accept()
+       │ connect()
+       │ send()
+       │ recv()
+       │ close()
+       ▼
+Operating-system interface
+       │
+       ▼
+Kernel
+       │
+       ▼
+Networking subsystem
+       │
+       ▼
+Drivers
+       │
+       ▼
+Network hardware
+```
 
-    File descriptor table
+There may be library wrappers and implementation details between your C++ call and the kernel, so do not interpret this diagram as exact machine instructions.
 
-    0 ----> standard input
-    1 ----> standard output
-    2 ----> standard error
-    3 ----> socket
-    4 ----> some file
-    5 ----> another socket
+It is a mental model.
 
-When your program refers to the file descriptor with ID = 3, it means that particular open resource. You can think of resource as something that your program can access/use through the OS which is entirely managed by the kernel. The actual socket data structures are maintained by the kernel in kernel memory.
+The important idea is:
 
-Also, if we want go deeper (actually we should), we have to understand what are file descriptors and what are the first 3 members of that list:
+> Your application requests networking operations; the kernel manages the protected networking state and hardware interactions.
 
-* standart input
-* standart output
-* standart error
+---
 
-All of these 3 are standart I/O streams. On Unix-like systems, the OS sets them up so they are accessable through file descripts `0`, `1`, `2`. Because these 3 file descriptors are resources, they are managed by the kernel.
+# File Descriptors
 
-If we want to have an even deeper understanding of file descriptors, we have understand how to use these 3 default resources (aka. file descriptors).
+We can finally explain why:
 
-For a socket, we have this:
+```cpp
+socket()
+```
 
-```C++
+returns an integer.
+
+On Unix-like systems, a process refers to many open resources using small integers called **file descriptors**.
+
+Conceptually, a process has a file-descriptor table resembling:
+
+```text
+File descriptor table
+
+0 ──────> standard input
+1 ──────> standard output
+2 ──────> standard error
+3 ──────> socket
+4 ──────> file
+5 ──────> another socket
+```
+
+If:
+
+```cpp
 int socket_fd = socket(...);
 ```
 
-For the 3 standart streams we already know what are their file descriptor values:
+returns:
 
-    stdin  ----> 0
-    stdout ----> 1
-    stderr ----> 2
-
-If you want to be an archaic cool person, you can use these 3 file descriptors like this:
-
-```C++
-#include <unistd.h>
-
-int main()
-{
-    const char message[] = "Hello!\n";
-
-    write(1, message, sizeof(message) - 1);
-}
+```text
+3
 ```
 
-Don't remember that `1` in `write(1, message, sizeof(message) - 1);` is a stdout FD.
+then `3` is the process's handle for that open socket.
 
-For these 3 FDs there are also symbolic constants already:
+It is not the socket's global ID.
 
-```C++
-#include <unistd.h>
+Another process can also have a descriptor `3`, and its `3` may refer to something completely different.
 
-int main()
-{
-    const char message[] = "Hello!\n";
+So a more accurate definition is:
 
-    write(STDOUT_FILENO, message, sizeof(message) - 1);
-}
+> A file descriptor is a small non-negative integer used by a Unix-like process to refer to an open file description/resource managed through the operating system.
+
+For this lesson, the simpler mental model is:
+
+```text
+fd
+ │
+ ▼
+small process-local handle
+ │
+ ▼
+kernel-managed open resource
+```
+
+---
+
+# Standard File Descriptors
+
+Unix-like processes conventionally begin with three standard file descriptors:
+
+```text
+0 ──────> stdin
+1 ──────> stdout
+2 ──────> stderr
+```
+
+`unistd.h` provides symbolic names:
+
+```cpp
+STDIN_FILENO
+STDOUT_FILENO
+STDERR_FILENO
 ```
 
 where:
 
-```C++
+```text
 STDIN_FILENO  == 0
 STDOUT_FILENO == 1
 STDERR_FILENO == 2
 ```
 
-using this we can directly write into error stream:
+For example:
 
-```C++
+```cpp
+#include <unistd.h>
+
+int main()
+{
+    const char message[] = "Hello!\n";
+
+    write(
+        STDOUT_FILENO,
+        message,
+        sizeof(message) - 1
+    );
+}
+```
+
+This writes bytes to standard output.
+
+We can similarly write to standard error:
+
+```cpp
 #include <unistd.h>
 
 int main()
 {
     const char error[] = "Something went wrong!\n";
 
-    write(STDERR_FILENO, error, sizeof(error) - 1);
+    write(
+        STDERR_FILENO,
+        error,
+        sizeof(error) - 1
+    );
 }
 ```
 
-And also we can read from file stream directly:
+Or read from standard input:
 
-```C++
+```cpp
 #include <unistd.h>
 
 int main()
 {
     char buffer[100];
 
-    ssize_t bytes = read(STDIN_FILENO, buffer, sizeof(buffer));
+    ssize_t bytes = read(
+        STDIN_FILENO,
+        buffer,
+        sizeof(buffer)
+    );
 }
 ```
 
-In the last example, did you notice something very similar to what we have already used? It's the part:
+Notice how similar this looks to operating on a socket:
 
-```C++
-read(STDIN_FILENO, buffer, 100);
+```cpp
+read(socket_fd, buffer, sizeof(buffer));
 ```
 
-It looks just like:
+That is one of the powerful ideas behind Unix file descriptors.
 
-```C++
-read(socket_fd, buffer, 100);
+Many different kinds of I/O resources can be accessed through a common descriptor-based interface.
+
+---
+
+# Redirection
+
+Standard descriptors do not necessarily refer to a terminal.
+
+For example:
+
+```bash
+./program < input.txt
 ```
 
-By default FDs `0`, `1`, `2` are kernel managed objects that point to the terminal. You can change that by calling your program like this:
+redirects standard input.
 
-```
-./program 0< input.txt      - reads input from file
-./program 1> output.txt     - outputs to a file
-./program 2> errors.txt     - redirects errors to a file
+```bash
+./program > output.txt
 ```
 
-I hope that now, you understand what a file descriptor is. Just to elaborate on it again, a **file descriptor** is a integer that indentifies a resource which is managed by the kernel.
+redirects standard output.
 
-
-#### Questions / Answers
-
-I said that we can answer these questions:
-1) Why does socket() return an integer?
-2) Why can recv() block my program?
-3) Where does received data wait before my program reads it?
-4) How can data arrive when my program isn't currently executing recv()?
-5) Why does the operating system know which application should receive an incoming packet?
-6) What exactly does close() destroy?
-
-
-**1) Why does socket() return an integer?** Because this integer is an ID for a file descriptor which is a resource managed by the kernel.
-
-**2) Why can recv() block my program?** Suppose you did:
-
-```C++
-char buffer[1024];
-recv(socket, buffer, sizeof(buffer), 0);
+```bash
+./program 2> errors.txt
 ```
 
-but nothing has arrived yet. The kernel sees this:
+redirects standard error.
 
-```
-[ empty ]
-```
-but we asked the kernel to receive something. the kernel cannot return something that isn't there, so it waits until some data arrives. With normal blocking sockets, when we encounter this operation, the kernel, essentially, puts the main thread (the one that manages our C++ application) to sleep, until data arrives.
+So:
 
-**3) Where does received data wait before my program reads it?** Received data lives in the kernel memory. Once you call:
-
-```C++
-recv(socket, buffer, sizeof(buffer), 0);
+```text
+stdout
 ```
 
-everything from the kernel memory is copied to the user space memory (aka. it is copied to `buffer`).
+does not mean:
 
-**4)How can data arrive when my program isn't currently executing `recv()`?** This is, probobly, the hardest conceptual leap in terms of understanding sockets and kernel. Our program does not directly receive bytes from the NIC directly, OS does.
+```text
+the terminal
+```
 
-NIC constantly is receiving bytes from the network, but it does not mean that our application is constantly getting those bytes. `recv()` does not mean "Start listening to the network right now", it is closer to "Give me the data the kernel is storing for this socket. If there is not any, wait according to the socket's blocking / nonblocking behavior (setup)".
+It means:
 
-The previous question / answer helps us with this question also. Because the NIC is constantly receving traffic, some of that traffic will be dedicated to the IP:Port that we use, which means that that traffic (the bytes) are dedicated to our program. But because those received bytes live in the kernel memory and because our application, that is in user space, cannot directly access the kernel space, we have to call `recv()` for it.
+```text
+file descriptor 1
+```
 
-**5) Why does the operating system know which application should receive an incoming packet?** Because OS maintains networking data structure map that knows describes which traffic (data packets) are going to which sockets (one of those sockets is the one we created in this lesson).
+and that descriptor may currently refer to a terminal, file, pipe, or another compatible resource.
 
-**6) What exactly does close() destroy?** 
+---
 
-```C++
+# Back to Our Socket
+
+Now this line should make much more sense:
+
+```cpp
+int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+```
+
+Conceptually:
+
+```text
+Application
+    │
+    │ socket(...)
+    ▼
+Kernel creates socket state
+    │
+    ▼
+File descriptor allocated
+    │
+    ▼
+Application receives integer
+```
+
+For example:
+
+```text
+                         USER SPACE
+
+                    C++ Application
+              ┌────────────────────────┐
+              │                        │
+              │       sock = 3         │
+              │                        │
+              └──────────┬─────────────┘
+                         │
+                   descriptor 3
+                         │
+═════════════════════════╪═════════════════════════
+                         │
+                         ▼
+                        KERNEL
+
+              ┌────────────────────────┐
+              │      Socket State      │
+              │                        │
+              │  protocol information  │
+              │  addresses             │
+              │  buffers               │
+              │  connection state      │
+              │  ...                   │
+              └────────────────────────┘
+```
+
+The descriptor is the application's reference to the resource.
+
+---
+
+# Where Does Received Data Wait?
+
+Suppose data arrives from the network before our application calls:
+
+```cpp
+recv()
+```
+
+The bytes do not need to disappear.
+
+Very roughly:
+
+```text
+Network
+   │
+   ▼
+NIC
+   │
+   ▼
+Kernel networking stack
+   │
+   ▼
+Socket receive buffer
+┌───────────────────────┐
+│ P │ i │ n │ g │ ...   │
+└───────────────────────┘
+   │
+   │ recv()
+   ▼
+User-space buffer
+```
+
+The exact kernel implementation is more complicated, but this is a useful mental model.
+
+---
+
+# How Does the OS Know Which Socket Gets Traffic?
+
+Incoming TCP traffic contains identifying information such as:
+
+```text
+source IP
+source port
+destination IP
+destination port
+protocol
+```
+
+For an established TCP connection, the connection is commonly described by:
+
+```text
+local IP
+local port
+remote IP
+remote port
+```
+
+together with the protocol.
+
+For our connection:
+
+```text
+Client
+
+local:  127.0.0.2:9000
+remote: 127.0.0.1:8080
+```
+
+and:
+
+```text
+Server connected socket
+
+local:  127.0.0.1:8080
+remote: 127.0.0.2:9000
+```
+
+The kernel maintains networking state that allows incoming traffic to be associated with the appropriate socket.
+
+That is why your application does not need to inspect every packet arriving at the network interface.
+
+---
+
+# `send()`
+
+The server replies with:
+
+```cpp
+constexpr std::string_view reply = "Pong";
+
+send(
+    client_socket,
+    reply.data(),
+    reply.size(),
+    0
+);
+```
+
+Conceptually:
+
+```text
+Application memory
+"Pong"
+   │
+   │ send()
+   ▼
+Kernel socket state/buffers
+   │
+   ▼
+TCP/IP stack
+   │
+   ▼
+Network interface
+   │
+   ▼
+Network
+```
+
+`send()` does not mean:
+
+> These exact bytes have already physically reached the other application.
+
+It gives data to the socket/networking subsystem for transmission and returns according to the socket's state and the operation's semantics.
+
+Also remember:
+
+> `send()` can return after accepting fewer bytes than requested.
+
+A robust application must check its return value and continue sending if necessary.
+
+We deliberately postpone that logic because it would obscure the basic flow of this first program.
+
+---
+
+# `close()`
+
+At the end we do:
+
+```cpp
 close(client_socket);
 close(server_socket);
 ```
 
-This operation tells OS that the process has finished using this (these) file descriptor(s). 
+`close()` is not specific to sockets.
 
-First of all, `close()` is not specific to sockets, it is a C++ function which tells the CPU that the operation using this file descriptor is finished. 
+It closes a **file descriptor**.
 
-Remember this:
+Conceptually:
 
-    Your C++ application process
+```text
+Before:
 
-    File descriptor table
-
-    0 ----> standard input
-    1 ----> standard output
-    2 ----> standard error
-    3 ----> socket
-    4 ----> some file
-    5 ----> another socket
-
-`close()` could be used on any of these file descriptors and it would do exactly the same thing in this process scope.
-
-Now, we have a situation where we have closed a file descriptor, but what happens to the socket in kernel space? Closing a file descriptor and destroying a socket in kernel space are 2 different things. 
-
-For a simple application, where calling `close(socket)` is the last call to this socket, it triggers the kernel to start the termination process of that socket specified in `close(socket)` statement.
-
-I won't go into the details of what happens tpo the socket in the kernel space, because currently I have not read about it and I do not think that this is a key thing to know for our simple ping-pomg application. Main thing to know that after calling `close(socket)` you should never try to do any operations with that file descriptor, because all of the resources of that resource (described by this file descriptor) are terminated.
+fd 3 ─────> socket
 
 
-#### Conclusion for Sockets and Kernel
-
-The main things to understand about sockets and kernel are that, in user space, our application interacts with a socket mainly through a file descriptor. The actual socket object and it's networking state is managed by the kernel inside the kernel space.
-
-When our application calls functions like: `soket()`, `bind()`, `listen()`, `accept()`, `send()`, `close()`, it is not the application itself that executes these operations but rather that it asks the kernel to perform these operations.
-
-Also, here is a short diagram showing what the main socket functions do:
-
-    socket()
-    |
-    |   create a socket
-    ▼
-    listen()
-    |
-    |   enable listening so clients can connect
-    ▼
-    accept()
-    |
-    |   (blocking operation) take 1 established connection 
-    ▼
-    recv()
-    |
-    |   read bytes from that connected socket
-    ▼
-
-Enough about kernels and sockets, let's get back to the server side code we have not yet covered.
+close(3)
 
 
-#### Server Reply
+After:
 
-Because this is a simple "ping-pong" application, the idea behind it is just so that the client pings the server and the server "pongs" the client back thus letting the client know that there is a connection between it and the server.
-
-Using this logic, we can deduce, that the client in the:
-
-```C++
-recv(client_socket, buffer, sizeof(buffer), 0);
+fd 3 ─────> no longer refers to that resource
 ```
 
-has probobly sent the server the message "ping" (I mean it can be what ever message, but for our program it will just be "ping", you can look it up in the `client.cpp` code) the server has to reply to the client with a message "pong".
+The descriptor number can later be reused.
 
-This is exactly what happens:
+For example:
 
-```C++
-const char* reply = "Pong";
-send(client_socket, reply, strlen(reply), 0);
+```text
+socket() returns 3
+close(3)
+
+later...
+
+open("file.txt") returns 3
 ```
 
-To be hones, `send(...)` is actually the opposite function from the `recv(...)`. You also have to specify the socket, through which you want to send the message (bytes), you specify the message, the message length and the special flags. Nothing special about the `send()` that you do not know about `recv()`.
+So after:
 
-
-#### Closing the Sockets
-
-After we have sent the response back to the client, our ping-pong logic ends. After server and client sockets have fulfilled their duties and if we decided not to use them anymore, we have to close them (terminate them). That is essentially what these lines do:
-
-```C++
-close(client_socket);
-close(server_socket);
+```cpp
+close(socket_fd);
 ```
 
-As mentioned before, these lines indicate the program that we should not, going forward, use `client_socket` and `server_socket` file descriptors. FD is released. 
+you must treat `socket_fd` as invalid unless you deliberately assign a new valid descriptor to it.
 
-There are some possibilities what happens with the integer associated with this socket fd. After calling 'close(...)` this number stops being a reference to that file descriptor and because of it your program might assign this number to some other resource.
+---
 
-In kernel space, there is a little bit more that happens with the TCP socket after closing it. After calling `close(...)` the kernel starts closing the connection. But, anything remaining in the buffer that is ready to be send through that socket does not magically dissapear. That remaining data will be sent out through that socket. This diagram should give some insight on what happens:
+# Does `close()` Immediately Destroy the Socket?
 
-    Your process            Receiver
-        |                       |
-    close(fd)                   |
-        |----remaining data---->|
-        |---------FIN---------->|
-        |                       |
-        |<--------ACK-----------|
+Not necessarily in the simplistic sense.
 
-Essentially, we send the remaining data. After all the data has been send we send a final message `FIN`. And finally our TCP socket, that now is not reachable from your process, receives an acknowledgent message (`ACK`) from the receiver, indicating that it received the message that this socket is terminating it's process.
+A file descriptor is one reference to an underlying open resource.
 
+There can be situations involving duplicated descriptors, inherited descriptors, or other references.
 
-### Client Code
+The underlying resource can remain alive while references to it still exist.
 
-Because we have first analised the code for the server side, now, we should easily understand the concept of the client's side of the code.
+For a simple program like ours, where the descriptor is the last reference, closing the connected TCP socket causes the kernel to perform the appropriate TCP connection-closing behavior.
 
-Almost everything inside the client's code is the same as in the server's side. There are 2 major changes though:
+The exact TCP shutdown sequence depends on connection state and circumstances.
 
-1. Logic behind the client
-2. `connect()`
+For now, the correct mental model is:
 
-Let's nalyze them one by one.
+```text
+close(fd)
+   │
+   ▼
+Process releases this descriptor
+   │
+   ▼
+If it was the last relevant reference,
+the kernel can clean up the underlying resource
+and perform protocol-specific teardown.
+```
 
-#### Client Logic
+We will study TCP connection termination separately rather than pretending it is always simply:
 
-Currently our program looks like this:
+```text
+FIN → ACK → destroyed
+```
 
-        SERVER                                  CLIENT
-    ----------------                        ----------------
-    |              |                        |              |
-    |   socket()   |                        |   socket()   |
-    |      |       |                        |      |       |
-    |      v       |                        |      v       |
-    |    bind()    |                        |  connect()   |
-    |      |       |          Connects      |      |       |
-    |      v       |  <------------------   |      |       |
-    |   listen()   |                        |      |       |
-    |      |       |                        |      |       |
-    |      v       |                        |      |       |
-    |   accept()   |                        |      |       |
-    |      |       |                        |      |       |
-    |      v       |                        |      v       |
-    |   recv()     |  <------ "PING" ------ |   send()     |
-    |      |       |                        |      |       |
-    |      v       |                        |      v       |
-    |   send()     |  ---- "PONG" --------> |   recv()     |
-    |      |       |                        |      |       |
-    |      v       |                        |      v       |
-    |   close()    |                        |   close()    |
-    |              |                        |              |
-    ----------------                        ----------------
+because real TCP teardown is more nuanced.
 
-The main difference between server and a client is how a connection is established:
+---
 
-    SERVER                              CLIENT
+# Quick Socket Questions
 
-    socket()                            socket()
-    |                                   |
-    bind()                                 |
-    |                                   |
-    listen()                               |
-    |                                   |
-    accept()  <-------- connect() ---------+
-    |
-    |       CONNECTION ESTABLISHED
-    |
-    recv()   <---------- send()
-    send()   ----------> recv()
-    |                   |
-    close()              close()
+At this point we can answer several questions that initially seem mysterious.
 
-The client is the one that initializes the connection between the server and itself. 
+## Why does `socket()` return an integer?
 
-This is the main difference between a client and a server for this ping-pong application.
+Because Unix-like systems expose the newly created socket to the process through a file descriptor.
 
-One more thing, notice that a client has also it's own IP and port:
+```text
+socket()
+   │
+   ▼
+kernel-managed socket
+   │
+   ▼
+file descriptor
+   │
+   ▼
+int
+```
 
-```C++
+---
+
+## Why can `recv()` block?
+
+Because the application asked for incoming data and none may currently be available.
+
+With a blocking socket, the operating system can suspend the calling thread until the operation can continue.
+
+---
+
+## Where does received data wait?
+
+Typically in kernel-managed networking/socket buffers and related networking state until the application consumes it.
+
+---
+
+## Can data arrive before I call `recv()`?
+
+Yes.
+
+The kernel's networking subsystem handles incoming traffic independently of whether your application is currently inside `recv()`.
+
+`recv()` asks for data associated with the socket; it does not turn the network interface on.
+
+---
+
+## How does the kernel know which socket gets incoming traffic?
+
+It uses protocol and endpoint/connection information from the incoming traffic together with its internal networking tables and socket state.
+
+---
+
+## What does `close()` close?
+
+The file descriptor.
+
+If that releases the final reference to the underlying socket resource, the kernel can clean up that resource and perform the appropriate protocol-specific teardown.
+
+---
+
+# Server Flow So Far
+
+We can now understand almost the entire server.
+
+```text
+socket()
+   │
+   │ create an IPv4 TCP socket
+   ▼
+bind()
+   │
+   │ assign local address
+   │ 127.0.0.1:8080
+   ▼
+listen()
+   │
+   │ make it a listening socket
+   ▼
+accept()
+   │
+   │ wait for / obtain one connection
+   ▼
+connected socket
+   │
+   ▼
+recv()
+   │
+   │ receive "Ping"
+   ▼
+send()
+   │
+   │ send "Pong"
+   ▼
+close()
+```
+
+Now we only need to understand the client.
+
+---
+
+# Client
+
+The client starts the same way:
+
+```cpp
+int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+```
+
+Again:
+
+```text
+Client process
+     │
+     ▼
+socket()
+     │
+     ▼
+IPv4 TCP socket
+```
+
+---
+
+# Client Address
+
+In many normal TCP clients, we would **not** explicitly bind a local IP and port.
+
+The OS could choose them automatically when we call:
+
+```cpp
+connect()
+```
+
+For this lesson, however, we explicitly choose:
+
+```cpp
 constexpr int CLIENT_PORT = 9000;
 constexpr std::string_view CLIENT_IP = "127.0.0.2";
 ```
 
-We have to create a separate socket for client also, because we need to establish a TCP connection with the server:
+because it makes the connection easier to visualize.
 
-    Client process                         Server process
+We create the address:
 
-    socket_fd                              client_socket
-        │                                       │
-        │ local:  127.0.0.2:9000                │ local:  127.0.0.1:8080
-        │ remote: 127.0.0.1:8080                │ remote: 127.0.0.2:9000
-        │                                       │
-        └──────────── TCP connection ───────────┘
+```cpp
+sockaddr_in client_addr{};
 
-#### Client / Server Sockets
+client_addr.sin_family = AF_INET;
+client_addr.sin_port = htons(CLIENT_PORT);
 
-For a simple client-server TCP connection, there are **3 sockets in total** when considering both the client and server processes.
-
-| Socket | Lives in | Created by | Purpose | Local endpoint | Remote endpoint |
-|---|---|---|---|---|---|
-| **Client socket** (`socket_fd`) | Client process | `socket()` in client | Connects to the server and sends/receives data | `127.0.0.2:9000` | `127.0.0.1:8080` |
-| **Listening socket** (`server_socket`) | Server process | `socket()` in server | Waits for new TCP connections | `127.0.0.1:8080` | None — it is listening, not connected to a specific client |
-| **Server's connected client socket** (`client_socket`) | Server process | Returned by `accept()` | Communicates with one specific connected client | `127.0.0.1:8080` | `127.0.0.2:9000` |
-
-#### Visualization
-
-    CLIENT PROCESS                         SERVER PROCESS
-
-                                          ┌─────────────────────┐
-                                          │   server_socket     │
-                                          │                     │
-                                          │ 127.0.0.1:8080      │
-                                          │                     │
-                                          │ LISTENING for new   │
-                                          │ connections         │
-                                          └──────────┬──────────┘
-                                                     │
-                                                     │ accept()
-                                                     ▼
-    ┌─────────────────────┐              ┌─────────────────────┐
-    │     socket_fd       │              │    client_socket    │
-    │                     │              │                     │
-    │ local:              │              │ local:              │
-    │ 127.0.0.2:9000      │              │ 127.0.0.1:8080      │
-    │                     │              │                     │
-    │ remote:             │              │ remote:             │
-    │ 127.0.0.1:8080      │              │ 127.0.0.2:9000      │
-    └──────────┬──────────┘              └──────────┬──────────┘
-               │                                    │
-               │                                    │
-               └═══════ TCP CONNECTION ═════════════┘
-
-#### 1. Client Socket — `socket_fd`
-
-Created in the **client process** using:
-
-    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-
-It is used by the client to establish a connection with the server and then send and receive data.
-
-After the connection is established:
-
-    Local:  127.0.0.2:9000
-    Remote: 127.0.0.1:8080
-
----
-
-#### 2. Server Listening Socket — `server_socket`
-
-Created in the **server process** using:
-
-    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
-
-It is then bound to the server's address:
-
-    127.0.0.1:8080
-
-and placed into listening mode:
-
-    listen(server_socket, 1);
-
-Its purpose is to wait for **new incoming TCP connections**.
-
-It is not used to communicate with a particular connected client.
-
----
-
-#### 3. Server Connected Socket — `client_socket`
-
-Returned to the server by:
-
-    int client_socket = accept(
-        server_socket,
-        (sockaddr*)&client_addr,
-        &client_len
-    );
-
-This socket represents the server's side of the connection with **one specific client**.
-
-    Local:  127.0.0.1:8080
-    Remote: 127.0.0.2:9000
-
-The server uses this socket to communicate with that client:
-
-    recv(client_socket, ...);
-    send(client_socket, ...);
-
-### Important
-
-Although there are **3 socket objects** in this simple example, only **2 connected sockets participate in the established TCP connection**:
-
-    Client's connected socket              Server's connected socket
-
-        socket_fd                              client_socket
-            │                                      │
-            │                                      │
-    127.0.0.2:9000  <========= TCP =========> 127.0.0.1:8080
-
-The third socket, `server_socket`, is the **listening socket**. Its job is to wait for and accept new connections.
-
-In short:
-
-    Client process:
-        1 connected socket
-
-    Server process:
-        1 listening socket
-        1 connected socket
-
-    Total:
-        3 socket objects
-
-    Actual TCP connection:
-        2 connected sockets
-
-#### Client Connection
-
-The final keyword we need to understand for this ping-pong application is the:
-
-```C++
-connect(socket_fd, (sockaddr*)&server_addr, sizeof(server_addr));
+inet_pton(
+    AF_INET,
+    CLIENT_IP.data(),
+    &client_addr.sin_addr
+);
 ```
+
+and bind it:
+
+```cpp
+bind(
+    socket_fd,
+    reinterpret_cast<sockaddr*>(&client_addr),
+    sizeof(client_addr)
+);
+```
+
+Now the client socket has the local endpoint:
+
+```text
+127.0.0.2:9000
+```
+
+Again, this explicit client-side `bind()` is primarily educational.
+
+A more typical client would let the operating system select an available ephemeral port.
+
+---
+
+# Server Address on the Client
+
+The client also needs to know **where it wants to connect**.
+
+So we create another address:
+
+```cpp
+sockaddr_in server_addr{};
+
+server_addr.sin_family = AF_INET;
+server_addr.sin_port = htons(SERVER_PORT);
+
+inet_pton(
+    AF_INET,
+    SERVER_IP.data(),
+    &server_addr.sin_addr
+);
+```
+
+This describes:
+
+```text
+127.0.0.1:8080
+```
+
+Notice the difference:
+
+```text
+client_addr
+    │
+    ▼
+Where THIS socket lives locally
+
+
+server_addr
+    │
+    ▼
+Where THIS socket wants to connect
+```
+
+---
+
+# `connect()`
+
+Finally:
+
+```cpp
+connect(
+    socket_fd,
+    reinterpret_cast<sockaddr*>(&server_addr),
+    sizeof(server_addr)
+);
+```
+
+This asks the operating system to establish a TCP connection to:
+
+```text
+127.0.0.1:8080
+```
+
+For a normal blocking TCP socket, `connect()` does not simply fire a packet and immediately return successfully.
+
+The kernel performs the TCP connection-establishment process.
+
+At a high level:
+
+```text
+CLIENT                                  SERVER
+
+connect()
+   │
+   │                                      listening
+   │                                         │
+   ├──────── connection attempt ────────────>│
+   │                                         │
+   │<──── TCP establishment traffic ────────>│
+   │                                         │
+   ▼                                         ▼
+connect() returns                    connection queued
+successfully                                │
+                                             ▼
+                                          accept()
+                                             │
+                                             ▼
+                                    connected socket
+```
+
+We will study the TCP three-way handshake in detail later.
+
+For this lesson, all we need is:
+
+```text
+connect()
+    =
+attempt to establish a TCP connection
+to the specified remote endpoint
+```
+
+---
+
+# `connect()` and `accept()`
+
+These two functions are closely related, but they run in different processes.
+
+```text
+SERVER                               CLIENT
+
+listen()
+   │
+   ▼
+accept()  <─────────────── connect()
+   │
+   │
+   ▼
+server receives
+connected socket
+```
+
+The client initiates the connection with:
+
+```cpp
+connect()
+```
+
+The server obtains an application-visible connected socket with:
+
+```cpp
+accept()
+```
+
+A subtle but important point:
+
+The kernel may complete the TCP handshake and queue the established connection before the server application actually calls or returns from `accept()`.
+
+So `accept()` should not be thought of as:
+
+> Perform the TCP handshake yourself.
+
+It is closer to:
+
+> Give my process one established connection waiting for this listening socket.
+
+---
+
+# Sending Ping
+
+Once `connect()` succeeds, the client can send data:
+
+```cpp
+constexpr std::string_view message = "Ping";
+
+send(
+    socket_fd,
+    message.data(),
+    message.size(),
+    0
+);
+```
+
+Conceptually:
+
+```text
+CLIENT                         SERVER
+
+"Ping"
+   │
+   ▼
+send()
+   │
+   └───────────────> recv()
+```
+
+---
+
+# Receiving Pong
+
+The client then waits for the response:
+
+```cpp
+char buffer[1024]{};
+
+ssize_t received = recv(
+    socket_fd,
+    buffer,
+    sizeof(buffer),
+    0
+);
+```
+
+The server sends:
+
+```text
+Pong
+```
+
+and the client receives those bytes:
+
+```text
+CLIENT                         SERVER
+
+recv() <─────────────── send()
+   │                     "Pong"
+   ▼
+"Pong"
+```
+
+Finally:
+
+```cpp
+close(socket_fd);
+```
+
+releases the client's descriptor.
+
+---
+
+# The Entire Connection
+
+We can now understand the whole program.
+
+```text
+                 SERVER                         CLIENT
+
+                   │                              │
+                   ▼                              ▼
+                socket()                       socket()
+                   │                              │
+                   ▼                              ▼
+                 bind()                         bind()
+                   │                              │
+                   ▼                              │
+                listen()                          │
+                   │                              │
+                   ▼                              ▼
+                accept() <────── connect() ───────┘
+                   │
+                   │       TCP connection
+                   │       established
+                   │
+                   ▼
+                 recv() <─────── "Ping" ────── send()
+                   │
+                   ▼
+                 send() ──────── "Pong" ─────> recv()
+                   │                              │
+                   ▼                              ▼
+                close()                        close()
+```
+
+---
+
+# What Exists After the Connection Is Established?
+
+This is worth repeating because it is one of the easiest things to misunderstand.
+
+## Client Process
+
+```text
+socket_fd
+│
+├── local:  127.0.0.2:9000
+└── remote: 127.0.0.1:8080
+```
+
+## Server Process
+
+Listening socket:
+
+```text
+server_socket
+│
+└── local: 127.0.0.1:8080
+```
+
+Connected socket:
+
+```text
+client_socket
+│
+├── local:  127.0.0.1:8080
+└── remote: 127.0.0.2:9000
+```
+
+Therefore:
+
+```text
+CLIENT PROCESS                         SERVER PROCESS
+
+ socket_fd                              server_socket
+     │                                      │
+     │                                      └── listening
+     │
+     │                                  client_socket
+     │                                      │
+     └══════════ TCP CONNECTION ════════════┘
+```
+
+There are:
+
+```text
+3 socket objects total
+```
+
+but the established TCP connection has:
+
+```text
+2 connected endpoints
+```
+
+one on each side.
+
+---
+
+# Important Distinction: Listening Socket vs Connected Socket
+
+The listening socket:
+
+```cpp
+server_socket
+```
+
+does not represent one particular client connection.
+
+Its job is:
+
+```text
+wait for new connections
+```
+
+The socket returned by:
+
+```cpp
+accept()
+```
+
+represents one specific established connection.
+
+Its job is:
+
+```text
+send and receive data
+```
+
+That is why a real server can eventually look like:
+
+```cpp
+while (true)
+{
+    int client = accept(server_socket, ...);
+
+    // communicate with this client
+}
+```
+
+The listening socket survives and continues accepting connections.
+
+Each connection receives another socket.
+
+We will build that kind of server later.
+
+---
+
+# One More Important TCP Detail
+
+Our program gives the impression that TCP sends messages:
+
+```text
+"Ping"
+"Pong"
+```
+
+Technically, TCP does not know that those are messages.
+
+TCP sees bytes.
+
+The client writes:
+
+```text
+P i n g
+```
+
+The server receives a stream containing those bytes.
+
+If an application performs:
+
+```cpp
+send(fd, "ABC", 3, 0);
+send(fd, "DEF", 3, 0);
+```
+
+TCP conceptually provides:
+
+```text
+A B C D E F
+```
+
+The receiver might observe them through `recv()` calls as:
+
+```text
+ABCDEF
+```
+
+or:
+
+```text
+AB
+CDEF
+```
+
+or another valid grouping.
+
+The byte order is preserved, but the application must define its own message boundaries.
+
+That will become extremely important once we start building real protocols.
+
+For our four-byte Ping/Pong example, we intentionally ignore this complexity for now.
+
+---
+
+# What We Learned
+
+From an application that only sends:
+
+```text
+Ping
+```
+
+and receives:
+
+```text
+Pong
+```
+
+we already encountered most of the basic building blocks of TCP socket programming.
+
+## IP Address
+
+For IPv4:
+
+```text
+32-bit address
+```
+
+used by the IP layer as part of addressing and routing network traffic.
+
+Example:
+
+```text
+127.0.0.1
+```
+
+---
+
+## Port
+
+A 16-bit transport-layer number:
+
+```text
+0 - 65535
+```
+
+used by protocols such as TCP and UDP as part of identifying communication endpoints.
+
+Example:
+
+```text
+8080
+```
+
+---
+
+## Endpoint Address
+
+```text
+IP + port
+```
+
+Example:
+
+```text
+127.0.0.1:8080
+```
+
+---
+
+## Socket
+
+A kernel-managed networking object used by a process as a communication endpoint.
+
+---
+
+## File Descriptor
+
+A small process-local integer used on Unix-like systems to refer to an open resource such as a socket.
+
+```text
+3 ─────> socket
+```
+
+---
+
+## `socket()`
+
+```cpp
+socket(AF_INET, SOCK_STREAM, 0);
+```
+
+Creates a socket and returns a file descriptor.
+
+---
+
+## `bind()`
+
+```cpp
+bind(...);
+```
+
+Associates a socket with a local address.
+
+```text
+127.0.0.1:8080
+```
+
+---
+
+## `listen()`
+
+```cpp
+listen(...);
+```
+
+Turns a suitable TCP socket into a listening socket that can receive incoming connection requests.
+
+---
+
+## `accept()`
+
+```cpp
+accept(...);
+```
+
+Obtains one established connection from a listening socket.
+
+On a blocking socket, it waits if no connection is currently available.
+
+It returns a **new connected socket**.
+
+---
+
+## `connect()`
+
+```cpp
+connect(...);
+```
+
+Initiates a connection to a remote endpoint.
+
+---
+
+## `send()`
+
+```cpp
+send(...);
+```
+
+Writes bytes to a connected socket's outgoing byte stream.
+
+---
+
+## `recv()`
+
+```cpp
+recv(...);
+```
+
+Reads bytes from a connected socket.
+
+With a blocking socket, it may wait when no data is currently available.
+
+---
+
+## `close()`
+
+```cpp
+close(...);
+```
+
+Closes the process's file descriptor.
+
+For sockets, releasing the final reference allows the kernel to clean up the socket and perform the appropriate protocol-specific teardown.
+
+---
+
+# Final Mental Model
+
+If there is only one diagram to remember from this lesson, remember this one:
+
+```text
+                          USER SPACE
+
+                 ┌─────────────────────┐
+                 │   Client Program    │
+                 │                     │
+                 │ socket_fd = 3       │
+                 └──────────┬──────────┘
+                            │
+                            │ system calls
+                            │
+════════════════════════════╪════════════════════════════
+                            │
+                            ▼
+                           KERNEL
+
+                 ┌─────────────────────┐
+                 │    Socket State     │
+                 │                     │
+                 │ local address       │
+                 │ remote address      │
+                 │ TCP state           │
+                 │ receive state       │
+                 │ send state          │
+                 │ ...                 │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                  Kernel networking stack
+                            │
+                            ▼
+                       NIC / Network
+                            │
+                            ▼
+                         Network
+```
+
+And for the connection itself:
+
+```text
+CLIENT PROCESS                                  SERVER PROCESS
+
+┌─────────────────────┐                  ┌─────────────────────┐
+│      socket_fd      │                  │    server_socket    │
+│                     │                  │                     │
+│ 127.0.0.2:9000      │                  │ 127.0.0.1:8080      │
+│                     │                  │                     │
+│ CONNECTED           │                  │ LISTENING           │
+└──────────┬──────────┘                  └──────────┬──────────┘
+           │                                        │
+           │                                     accept()
+           │                                        │
+           │                                        ▼
+           │                             ┌─────────────────────┐
+           │                             │    client_socket    │
+           │                             │                     │
+           │                             │ 127.0.0.1:8080      │
+           │                             │                     │
+           │                             │ CONNECTED           │
+           │                             └──────────┬──────────┘
+           │                                        │
+           │                                        │
+           └══════════════ TCP CONNECTION ══════════┘
+```
+
+The client and server applications do not manually control packets, network cards, TCP state machines, retransmissions, routing, or most of the other machinery involved.
+
+They work through sockets.
+
+The kernel handles the lower-level networking machinery.
+
+Our application mostly sees:
+
+```text
+socket()
+bind()
+listen()
+accept()
+connect()
+send()
+recv()
+close()
+```
+
+That small interface hides an enormous amount of complexity.
+
+And that is exactly why sockets are useful.
+
+---
+
+# Final Program Flow
+
+```text
+SERVER                                              CLIENT
+
+socket(AF_INET, SOCK_STREAM, 0)             socket(AF_INET, SOCK_STREAM, 0)
+        │                                            │
+        ▼                                            ▼
+bind(127.0.0.1:8080)                        bind(127.0.0.2:9000)
+        │                                            │
+        ▼                                            │
+listen()                                             │
+        │                                            │
+        ▼                                            ▼
+accept()  <─────────────────────────────── connect(127.0.0.1:8080)
+        │                                            │
+        │                                            │
+        │           CONNECTION ESTABLISHED           │
+        │                                            │
+        ▼                                            ▼
+recv()   <──────────────── "Ping" ─────────────── send()
+        │                                            │
+        ▼                                            │
+send()   ──────────────── "Pong" ───────────────> recv()
+        │                                            │
+        ▼                                            ▼
+close(client_socket)                            close(socket_fd)
+        │
+        ▼
+close(server_socket)
+```
+
+That is our first TCP application.
+
+The program itself is tiny.
+
+But underneath those few function calls we now have a mental model for:
+
+```text
+IPv4
+ports
+endpoints
+sockets
+file descriptors
+user mode
+kernel mode
+socket buffers
+blocking operations
+listening sockets
+connected sockets
+bind()
+listen()
+accept()
+connect()
+send()
+recv()
+close()
+```
+
+In the next lessons, we can start adding complexity without treating these concepts as magic.

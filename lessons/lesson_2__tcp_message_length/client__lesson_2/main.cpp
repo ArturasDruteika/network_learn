@@ -169,7 +169,6 @@ int main()
         0
     );
 
-
     // Close our side of the TCP connection.
     close(socket_fd_client);
 

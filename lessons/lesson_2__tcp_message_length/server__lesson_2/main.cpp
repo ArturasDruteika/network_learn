@@ -107,13 +107,10 @@ int main()
     {
         ssize_t received = recv(
             socket_fd_client,
-
             // Continue writing after the bytes we already received.
             message_received.data() + total_received,
-
             // Ask only for the number of bytes still missing.
             message_received.size() - total_received,
-
             0
         );
 

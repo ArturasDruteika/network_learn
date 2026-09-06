@@ -6,11 +6,11 @@
 #include <unistd.h>
 
 
-constexpr int SERVER_PORT = 8080;
-constexpr std::string_view SERVER_IP = "127.0.0.1";
+constexpr int PORT_SERVER = 8080;
+constexpr std::string_view IP_SERVER = "127.0.0.1";
 
-constexpr int CLIENT_PORT = 9000;
-constexpr std::string_view CLIENT_IP = "127.0.0.2";
+constexpr int PORT_CLIENT = 9000;
+constexpr std::string_view IP_CLIENT = "127.0.0.2";
 
 
 int main()
@@ -20,18 +20,18 @@ int main()
     // Client's own address
     sockaddr_in client_addr{};
     client_addr.sin_family = AF_INET;
-    client_addr.sin_port = htons(CLIENT_PORT);
+    client_addr.sin_port = htons(PORT_CLIENT);
 
-    inet_pton(AF_INET, CLIENT_IP.data(), &client_addr.sin_addr);
+    inet_pton(AF_INET, IP_CLIENT.data(), &client_addr.sin_addr);
 
     bind(socket_fd, (sockaddr*)&client_addr, sizeof(client_addr));
 
     // Server's address
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(SERVER_PORT);
+    server_addr.sin_port = htons(PORT_SERVER);
 
-    inet_pton(AF_INET, SERVER_IP.data(), &server_addr.sin_addr);
+    inet_pton(AF_INET, IP_SERVER.data(), &server_addr.sin_addr);
 
     connect(socket_fd, (sockaddr*)&server_addr, sizeof(server_addr));
 

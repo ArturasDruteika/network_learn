@@ -27,7 +27,6 @@ int main()
 
     spdlog::info("Waiting for client...");
 
-
     sockaddr_in client_addr{};
     socklen_t client_len = sizeof(client_addr);
 
@@ -50,7 +49,6 @@ int main()
 
     // Get client's port
     int client_port = ntohs(client_addr.sin_port);
-
 
     char buffer[1024]{};
 

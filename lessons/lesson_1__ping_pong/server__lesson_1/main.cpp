@@ -36,7 +36,6 @@ int main()
         &client_len
     );
 
-
     // Get client's IP address
     char client_ip[INET_ADDRSTRLEN]{};
 
@@ -61,11 +60,9 @@ int main()
         client_port
     );
 
-
     const char* reply = "pong";
 
     send(client_socket, reply, strlen(reply), 0);
-
 
     close(client_socket);
     close(server_socket);

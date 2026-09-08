@@ -49,7 +49,7 @@ Client                         Server
 
 ---
 
-## Lesson 2 — TCP Streams
+## Lesson 2 — TCP Message Length
 
 **Goal:** Understand that TCP is a byte stream, not a message protocol.
 

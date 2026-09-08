@@ -116,9 +116,7 @@ int main()
 
         if (received <= 0)
         {
-            spdlog::error(
-                "Connection closed while receiving message"
-            );
+            spdlog::error("Connection closed while receiving message");
             break;
         }
 

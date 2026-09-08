@@ -141,9 +141,6 @@ int main()
 
     // Messages we can send to the server.
     const std::string message_1 = "I contain - 20 bytes";
-    const std::string message_2 = "I - 12 bytes";
-    const std::string message_3 = "I contain exactly 31 characters";
-
 
     // Convert our message into:
     //

@@ -30,8 +30,8 @@ package_for_act()
         exit 1
     fi
 
-    tar -czf open_gl_learn-ubuntu-release.tar.gz -C "${REPO_ROOT}/${BUILD_DIR}" INSTALL
-    ls -lah open_gl_learn-ubuntu-release.tar.gz
+    tar -czf network_learn-ubuntu-release.tar.gz -C "${REPO_ROOT}/${BUILD_DIR}" INSTALL
+    ls -lah network_learn-ubuntu-release.tar.gz
 }
 
 main()

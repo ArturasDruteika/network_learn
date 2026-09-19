@@ -12,7 +12,3 @@ target_link_libraries(${PROJECT_NAME}
         spdlog::spdlog
 )
 
-install(
-    TARGETS ${PROJECT_NAME}
-    RUNTIME DESTINATION bin
-)

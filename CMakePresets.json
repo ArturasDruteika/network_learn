@@ -15,9 +15,7 @@
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_C_COMPILER": "clang",
                 "CMAKE_CXX_COMPILER": "clang++",
-                "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/debug",
-                "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/debug",
-                "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/debug"
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/linux_clang_debug_install"
             },
             "condition": {
                 "type": "equals",
@@ -49,9 +47,7 @@
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_C_COMPILER": "gcc",
                 "CMAKE_CXX_COMPILER": "g++",
-                "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/debug",
-                "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/debug",
-                "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/debug"
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/linux_gcc_debug_install"
             },
             "condition": {
                 "type": "equals",
@@ -82,9 +78,7 @@
             "cacheVariables": {
                 "CMAKE_CONFIGURATION_TYPES": "Debug",
                 "CMAKE_GENERATOR_PLATFORM": "x64",
-                "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build",
-                "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build",
-                "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build"
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/windows_debug_install"
             },
             "condition": {
                 "type": "equals",
@@ -99,9 +93,7 @@
             "cacheVariables": {
                 "CMAKE_CONFIGURATION_TYPES": "Release",
                 "CMAKE_GENERATOR_PLATFORM": "x64",
-                "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build",
-                "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build",
-                "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build"
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/windows_install"
             },
             "condition": {
                 "type": "equals",

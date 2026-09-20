@@ -2,37 +2,41 @@ cmake_minimum_required(VERSION 3.24)
 
 project(network_learn)
 
-if(CMAKE_GENERATOR MATCHES "Visual Studio")
-    # All files that are not compiled.
-    set(CMAKE_ASSETS_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
-else()
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<LOWER_CASE:$<CONFIG>>/bin")
-    set(CMAKE_ASSETS_OUTPUT_DIRECTORY  "${CMAKE_BINARY_DIR}/$<LOWER_CASE:$<CONFIG>>/bin")
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<LOWER_CASE:$<CONFIG>>/lib")
-    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<LOWER_CASE:$<CONFIG>>/lib")
-endif()
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}")
-set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}")
+# ---------------------------------------------------------------------------
+# Intermediate build output
+#
+# This is NOT the final installation layout.
+#
+# Linux example:
+#
+#   build/linux_clang_release/
+#       bin/
+#       lib/
+#
+# The lesson-specific final layout is created by install() rules.
+# ---------------------------------------------------------------------------
+
+if(NOT CMAKE_GENERATOR MATCHES "Visual Studio")
+
+    set(
+        CMAKE_RUNTIME_OUTPUT_DIRECTORY
+        "${CMAKE_BINARY_DIR}/bin"
+    )
+
+    set(
+        CMAKE_LIBRARY_OUTPUT_DIRECTORY
+        "${CMAKE_BINARY_DIR}/lib"
+    )
+
+    set(
+        CMAKE_ARCHIVE_OUTPUT_DIRECTORY
+        "${CMAKE_BINARY_DIR}/lib"
+    )
+
+endif()
 
 add_subdirectory(external)
 add_subdirectory(lessons)
-
-# --- Install Rules ---
-install(
-    DIRECTORY "${CMAKE_BINARY_DIR}/$<LOWER_CASE:$<CONFIG>>/"
-    DESTINATION "."
-    COMPONENT runtime
-
-    FILE_PERMISSIONS
-        OWNER_READ OWNER_WRITE OWNER_EXECUTE
-        GROUP_READ GROUP_EXECUTE
-        WORLD_READ WORLD_EXECUTE
-
-    FILES_MATCHING
-        PATTERN "*"
-        PATTERN "*.a" EXCLUDE
-        PATTERN "*.lib" EXCLUDE
-        PATTERN "*.exp" EXCLUDE
-        PATTERN "*.pdb" EXCLUDE
-)

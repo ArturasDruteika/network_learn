@@ -37,8 +37,7 @@ std::vector<uint8_t> encode_message(const std::string& message)
         throw std::runtime_error(
             "Message size over the limit. Maximum possible message size: " +
             std::to_string(UINT8_MAX) +
-            ", current message size: " + std::to_string(message_length)
-        );
+            ", current message size: " + std::to_string(message_length));
     }
 
     std::vector<uint8_t> message_bytes;
@@ -53,16 +52,12 @@ std::vector<uint8_t> encode_message(const std::string& message)
     message_bytes.reserve(1 + message_length);
 
     // Store the message size as the first byte.
-    message_bytes.push_back(
-        static_cast<uint8_t>(message_length)
-    );
+    message_bytes.push_back(static_cast<uint8_t>(message_length));
 
     // Append the actual message bytes after the size byte.
-    message_bytes.insert(
-        message_bytes.end(),
-        message.begin(),
-        message.end()
-    );
+    message_bytes.insert(message_bytes.end(),
+                         message.begin(),
+                         message.end());
 
     return message_bytes;
 }
@@ -71,11 +66,9 @@ std::vector<uint8_t> encode_message(const std::string& message)
 int main()
 {
     // Create an IPv4 TCP socket.
-    int socket_fd_client = socket(
-        AF_INET,
-        SOCK_STREAM,
-        0
-    );
+    int socket_fd_client = socket(AF_INET,
+                                  SOCK_STREAM,
+                                  0);
 
 
     // --------------------
@@ -92,21 +85,17 @@ int main()
 
     // Convert "127.0.0.2" from text into the binary IPv4 format
     // required by sockaddr_in.
-    inet_pton(
-        AF_INET,
-        IP_CLIENT.data(),
-        &addr_client.sin_addr
-    );
+    inet_pton(AF_INET,
+              IP_CLIENT.data(),
+              &addr_client.sin_addr);
 
     // Explicitly assign our client socket an IP address and port.
     //
     // This is optional for a normal TCP client. If bind() is omitted,
     // the operating system chooses the local IP and an available port.
-    bind(
-        socket_fd_client,
-        (sockaddr*)&addr_client,
-        sizeof(addr_client)
-    );
+    bind(socket_fd_client,
+         (sockaddr*)&addr_client,
+         sizeof(addr_client));
 
 
     // --------------------
@@ -121,22 +110,18 @@ int main()
     addr_server.sin_port = htons(PORT_SERVER);
 
     // Convert the server IP address into binary IPv4 format.
-    inet_pton(
-        AF_INET,
-        IP_SERVER.data(),
-        &addr_server.sin_addr
-    );
+    inet_pton(AF_INET,
+              IP_SERVER.data(),
+              &addr_server.sin_addr);
 
 
     // Establish a TCP connection to the server.
     //
     // After connect() succeeds, socket_fd_client represents
     // the TCP connection between this client and the server.
-    connect(
-        socket_fd_client,
-        (sockaddr*)&addr_server,
-        sizeof(addr_server)
-    );
+    connect(socket_fd_client,
+            (sockaddr*)&addr_server,
+            sizeof(addr_server));
 
 
     // Messages we can send to the server.
@@ -159,12 +144,10 @@ int main()
     //
     // data() -> pointer to the first byte
     // size() -> number of bytes we want to send
-    send(
-        socket_fd_client,
-        message_bytes.data(),
-        message_bytes.size(),
-        0
-    );
+    send(socket_fd_client,
+         message_bytes.data(),
+         message_bytes.size(),
+         0);
 
     // Close our side of the TCP connection.
     close(socket_fd_client);

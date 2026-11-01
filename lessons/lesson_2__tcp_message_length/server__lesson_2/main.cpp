@@ -25,11 +25,9 @@ int main()
     inet_pton(AF_INET, IP.data(), &addr_server.sin_addr);
 
     // Assign our IP address and port to the socket.
-    bind(
-        socket_fd_server,
-        (sockaddr*)&addr_server,
-        sizeof(addr_server)
-    );
+    bind(socket_fd_server,
+         (sockaddr*)&addr_server,
+         sizeof(addr_server));
 
     // Turn the socket into a listening socket.
     // The second argument controls the connection backlog.
@@ -43,21 +41,17 @@ int main()
     // Wait until a client connects.
     // accept() returns a NEW socket used to communicate with that client.
     // socket_fd_server remains the listening socket.
-    int socket_fd_client = accept(
-        socket_fd_server,
-        (sockaddr*)&addr_client,
-        &client_len
-    );
+    int socket_fd_client = accept(socket_fd_server,
+                                  (sockaddr*)&addr_client,
+                                  &client_len);
 
     // Convert the client's binary IP address into a readable string.
     char client_ip[INET_ADDRSTRLEN]{};
 
-    inet_ntop(
-        AF_INET,
-        &addr_client.sin_addr,
-        client_ip,
-        sizeof(client_ip)
-    );
+    inet_ntop(AF_INET,
+              &addr_client.sin_addr,
+              client_ip,
+              sizeof(client_ip));
 
     // Ports in sockaddr_in are stored in network byte order.
     // Convert the client's port to the host's byte order.
@@ -71,12 +65,10 @@ int main()
     // First receive the one-byte message size.
     uint8_t message_size = 0;
 
-    ssize_t bytes_received = recv(
-        socket_fd_client,
-        &message_size,
-        sizeof(message_size),
-        0
-    );
+    ssize_t bytes_received = recv(socket_fd_client,
+                                  &message_size,
+                                  sizeof(message_size),
+                                  0);
 
     // recv() returns:
     //   > 0 : number of bytes received
@@ -105,14 +97,12 @@ int main()
     // the entire message, so keep receiving until we have all bytes.
     while (total_received < message_received.size())
     {
-        ssize_t received = recv(
-            socket_fd_client,
-            // Continue writing after the bytes we already received.
-            message_received.data() + total_received,
-            // Ask only for the number of bytes still missing.
-            message_received.size() - total_received,
-            0
-        );
+        ssize_t received = recv(socket_fd_client,
+                                // Continue writing after the bytes we already received.
+                                message_received.data() + total_received,
+                                // Ask only for the number of bytes still missing.
+                                message_received.size() - total_received,
+                                0);
 
         if (received <= 0)
         {
@@ -124,12 +114,10 @@ int main()
         total_received += static_cast<size_t>(received);
     }
 
-    spdlog::info(
-        "Received '{}' from {}:{}",
-        message_received,
-        client_ip,
-        client_port
-    );
+    spdlog::info("Received '{}' from {}:{}",
+                 message_received,
+                 client_ip,
+                 client_port);
 
     // Close the connected client socket first,
     // then the server's listening socket.

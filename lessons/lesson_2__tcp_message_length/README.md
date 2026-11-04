@@ -4,16 +4,16 @@
 
 - [0. Premise](#0-premise)
 - [1. Message Length](#1-message-length)
-  - [1.1. Problem](#11-problem)
-  - [1.2. Solution](#12-solution)
+    - [1.1. Problem](#11-problem)
+    - [1.2. Solution](#12-solution)
 - [2. Message Structure](#2-message-structure)
-  - [2.1. Message Length Header](#21-message-length-header)
-  - [2.2. Network Byte Order](#22-network-byte-order)
+    - [2.1. Message Length Header](#21-message-length-header)
+    - [2.2. Network Byte Order](#22-network-byte-order)
 - [3. Implementation](#3-implementation)
-  - [3.1. Sending All Bytes](#31-sending-all-bytes)
-  - [3.2. Receiving All Bytes](#32-receiving-all-bytes)
-  - [3.3. TCP Server](#33-tcp-server)
-  - [3.4. TCP Client](#34-tcp-client)
+    - [3.1. Sending All Bytes](#31-sending-all-bytes)
+    - [3.2. Receiving All Bytes](#32-receiving-all-bytes)
+    - [3.3. TCP Server](#33-tcp-server)
+    - [3.4. TCP Client](#34-tcp-client)
 - [4. Testing](#4-testing)
 - [5. Conclusion](#5-conclusion)
 
@@ -55,61 +55,85 @@ In a sense, we were reserving a char buffer of size 1024 for the message. Also, 
 
 Also, in lesson 1 the server, kind of, expected only a single client to connect, but what if there is a situation where a client sends 3 messages, one after the other:
 
-```
-┌───┬───┬───┬───┬───┬───┬───┬───┐
-│ P │ I │ N │ G │ P │ i │ N │ G │
-└───┴───┴───┴───┴───┴───┴───┴───┘
-             8 bytes
+    ┌───┬───┬───┬───┬───┬───┬───┬───┐
+    │ P │ I │ N │ G │ P │ i │ N │ G │
+    └───┴───┴───┴───┴───┴───┴───┴───┘
+                8 bytes
 
-┌───┬───┬───┬───┐
-│ H │ A │ H │ A │
-└───┴───┴───┴───┘
-     4 bytes
+    ┌───┬───┬───┬───┐
+    │ H │ A │ H │ A │
+    └───┴───┴───┴───┘
+        4 bytes
 
+    ┌───┬───┬───┬───┬───┐
+    │ H │ E │ L │ L │ O │
+    └───┴───┴───┴───┴───┘
+           5 bytes
 
-┌───┬───┬───┬───┬───┐
-│ H │ E │ L │ L │ O │
-└───┴───┴───┴───┴───┘
-        5 bytes
-```
+If the client does the reading after the 3-rd client message has been sent, then we are not certain in what order the server is going to receive the data once. The server might receive all 3 messages as a single message, for example:
 
-If the client does the reading after the 3-rd client message has been sent, then the server might receive all 3 messages as a single message, for example:
+    recv() #1 (17 bytes):
 
-```
-recv() #1 (17 bytes):
-
-┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
-│ P │ I │ N │ G │ P │ i │ N │ G │ H │ A │ H │ A │ H │ E │ L │ L │ O │
-└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
-                             17 bytes
-```
+    ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
+    │ P │ I │ N │ G │ P │ i │ N │ G │ H │ A │ H │ A │ H │ E │ L │ L │ O │
+    └───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
+                                17 bytes
 
 It can also receive data in this way:
 
-```
-recv() #1 (3 bytes):
+    recv() #1 (3 bytes):
 
-┌───┬───┬───┐
-│ P │ I │ N │
-└───┴───┴───┘
+    ┌───┬───┬───┐
+    │ P │ I │ N │
+    └───┴───┴───┘
 
-recv() #2 (7 bytes):
+    recv() #2 (7 bytes):
 
-┌───┬───┬───┬───┬───┬───┬───┐
-│ G │ P │ i │ N │ G │ H │ A │
-└───┴───┴───┴───┴───┴───┴───┘
+    ┌───┬───┬───┬───┬───┬───┬───┐
+    │ G │ P │ i │ N │ G │ H │ A │
+    └───┴───┴───┴───┴───┴───┴───┘
 
-recv() #3 (7 bytes):
+    recv() #3 (7 bytes):
 
-┌───┬───┬───┬───┬───┬───┬───┐
-│ H │ A │ H │ E │ L │ L │ O │
-└───┴───┴───┴───┴───┴───┴───┘
-```
-
-In cases like these, we are actually in a problem, because now, when the server does `recv(...)`, it's buffer can return different results:
+    ┌───┬───┬───┬───┬───┬───┬───┐
+    │ H │ A │ H │ E │ L │ L │ O │
+    └───┴───┴───┴───┴───┴───┴───┘
 
 Do you see the problem now? For all the aforementioned problems and more, we must somehow encode a message length in order to know how many bytes of data a server or a client (later in the future we will talk about this) should expect.
 
 
 ## 1.2. Solution
+
+One of the best ways to solve this problem is to encode the message length into the message itself. Before continuing, let's understand why encoding a message length is useful.
+
+By encoding a message length we tell can easily tell the receiver (the one thatcalls `recv()`) how many bytes should be read from the bytes stream. If we know the message length, we can construct different messages from the data stream. 
+
+To add on why encoding mesasge length is great:
+
+- **Efficiant memory allocation**. By knowing the exact message length we can assign that number as the buffer size that will store that message. (In lesson 1 we had to predefine a buffer size of 1024 bytes, which was a huge resource throw away, since the sent message took less than 10 bytes)
+- **Detecting incomplete messages**. If we know the message length, we can also know if the message is corrupt or not complete if the received message is less than the actual size. Without knowing the actual message length, we cannot be sure if the received message is full. This is especially critical once we start downloading / uploading files, because the file size after the `send()` or `recv()` operation must occupy the same amount of space.
+- **Encode messages of different sizes**. We are not bound by some predefined message length. Each message can have it's own size.
+
+How to encode a message length in the message that is about to be sent?
+
+Let's take this message:
+
+    ┌───┬───┬───┬───┬───┐
+    │ H │ E │ L │ L │ O │
+    └───┴───┴───┴───┴───┘
+           5 bytes
+
+This message is 5 bytes long. What if we could extend this message at the front by adding a predefined number of bytes that would store a number defining a message length like this:
+
+    ┌───┬───┬───┬───┬───┬───┐
+    │ 5 │ H │ E │ L │ L │ O │
+    └───┴───┴───┴───┴───┴───┘
+    └───┘ └─────────────────┘
+    1 byte    5 bytes
+    (message  (message data)
+    length)   
+
+           9 bytes (total)
+
+
 

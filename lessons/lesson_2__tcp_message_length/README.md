@@ -6,16 +6,13 @@
 - [1. Message Length](#1-message-length)
     - [1.1. Problem](#11-problem)
     - [1.2. Solution](#12-solution)
-- [2. Message Structure](#2-message-structure)
-    - [2.1. Message Length Header](#21-message-length-header)
-    - [2.2. Network Byte Order](#22-network-byte-order)
-- [3. Implementation](#3-implementation)
-    - [3.1. Sending All Bytes](#31-sending-all-bytes)
-    - [3.2. Receiving All Bytes](#32-receiving-all-bytes)
-    - [3.3. TCP Server](#33-tcp-server)
-    - [3.4. TCP Client](#34-tcp-client)
-- [4. Testing](#4-testing)
-- [5. Conclusion](#5-conclusion)
+- [2. Implementation](#2-implementation)
+    - [2.1. Sending All Bytes](#21-sending-all-bytes)
+    - [2.2. Receiving All Bytes](#22-receiving-all-bytes)
+    - [2.3. TCP Server](#23-tcp-server)
+    - [2.4. TCP Client](#24-tcp-client)
+- [3. Testing](#3-testing)
+- [4. Conclusion](#4-conclusion)
 
 # 0. Premise
 
@@ -136,4 +133,93 @@ This message is 5 bytes long. What if we could extend this message at the front 
            9 bytes (total)
 
 
+That is one of the most common and simple ways to encode a message length.
 
+One thing to pay attention to is that each block in the message is of size 1 byte. So by this logic, the number 5 is also represented in the form of 1 byte. If you remember the binary, you should know that a number 5 looks like:
+
+    00000101
+
+Remember that a maximum positive integer (`uint_8`) number that a 1 byte can represent is 255. That means that a message larger than that cannot be encoded if we use a single byte for message length.
+
+To solve this, we can say that 4 bytes will be used for encoding a message length. This way a message could look like this:
+
+    ┌───┬───┬───┬───┬───┬───┬───┬───┬───┐
+    │ 0 │ 0 │ 0 │ 5 │ H │ E │ L │ L │ O │
+    └───┴───┴───┴───┴───┴───┴───┴───┴───┘
+                    8 bytes
+
+Since we use 4 bytes, we can encode a message that is this big 4,294,967,295.
+
+The only predefined rule we need to follow is that the sender and the receiver have to know beforehand the number of bytes that will comprise a message length. For example if a client sends a message where 2 bytes encode a message length, then a server also has to know that the first 2 bytes will tell the message length.
+
+Now we have a basic understanding how to encode a number representing a message length at the beginning of the message itself.
+
+
+# 2. Implementation
+
+Let's first analyze the client part.
+
+```C++
+// Encode a message using our simple protocol:
+//
+// [ 2 bytes: message size ][ message bytes... ]
+//
+// Example for "Hello":
+//
+// [0x00][0x05][H][e][l][l][o]
+//
+// Because the message size is stored in two bytes (uint16_t),
+// our protocol can represent message sizes from 0 to 65535.
+//
+// The message size is encoded in network byte order (big-endian).
+std::vector<uint8_t> encode_message(const std::string& message)
+{
+    size_t message_length = message.size();
+
+    // Make sure the message length fits into two bytes.
+    if (message_length > UINT16_MAX)
+    {
+        throw std::runtime_error("Message size over the limit. Maximum possible message size: " +
+                                 std::to_string(UINT16_MAX) +
+                                 ", current message size: " +
+                                 std::to_string(message_length));
+    }
+
+    std::vector<uint8_t> message_bytes;
+
+    // Reserve memory for:
+    //
+    //   2 bytes for the message size
+    //   +
+    //   N bytes for the actual message
+    //
+    // reserve() allocates capacity but does not add elements.
+    message_bytes.reserve(BYTES_MESSAGE_LENGTH + message_length);
+
+    // Convert the message size to a 16-bit unsigned integer.
+    uint16_t message_size = static_cast<uint16_t>(message_length);
+
+    // Store the message size in network byte order (big-endian).
+    //
+    // First byte:  most significant 8 bits.
+    // Second byte: least significant 8 bits.
+    //
+    // Example:
+    //
+    // Message size = 300 (0x012C)
+    //
+    // First byte  = 0x01
+    // Second byte = 0x2C
+    message_bytes.push_back(static_cast<uint8_t>((message_size >> 8) & 0xFF));
+    message_bytes.push_back(static_cast<uint8_t>(message_size & 0xFF));
+
+    // Append the actual message bytes after the size bytes.
+    message_bytes.insert(message_bytes.end(),
+                         message.begin(),
+                         message.end());
+
+    return message_bytes;
+}
+```
+
+What does this function do? Actually, it is pretty simple. The function takes `const std::string& message` and outputs a vector `std::vector<uint8_t>` (which is of size 2) which is the encoding of the message length

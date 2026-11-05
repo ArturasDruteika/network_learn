@@ -1,19 +1,33 @@
 #include "spdlog/spdlog.h"
 
 #include <arpa/inet.h>
-#include <cstring>
+#include <cerrno>
+#include <cstdint>
+#include <string>
 #include <string_view>
+#include <sys/socket.h>
 #include <unistd.h>
 
 
 constexpr int PORT = 8000;
 constexpr std::string_view IP = "127.0.0.1";
 
+// Number of bytes used to represent the message length.
+constexpr uint16_t BYTES_MESSAGE_LENGTH = 2;
+
+static_assert(BYTES_MESSAGE_LENGTH == sizeof(uint16_t));
+
 
 int main()
 {
     // Create an IPv4 TCP socket.
     int socket_fd_server = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (socket_fd_server < 0)
+    {
+        spdlog::error("Failed to create server socket");
+        return 1;
+    }
 
     // Configure the address on which the server will listen.
     sockaddr_in addr_server{};
@@ -22,16 +36,33 @@ int main()
 
     // Convert "127.0.0.1" from text into the binary format
     // expected by sockaddr_in.
-    inet_pton(AF_INET, IP.data(), &addr_server.sin_addr);
+    if (inet_pton(AF_INET,
+                  IP.data(),
+                  &addr_server.sin_addr) != 1)
+    {
+        spdlog::error("Invalid server IP address");
+        close(socket_fd_server);
+        return 1;
+    }
 
     // Assign our IP address and port to the socket.
-    bind(socket_fd_server,
-         (sockaddr*)&addr_server,
-         sizeof(addr_server));
+    if (bind(socket_fd_server,
+             (sockaddr*)&addr_server,
+             sizeof(addr_server)) < 0)
+    {
+        spdlog::error("Failed to bind server socket");
+        close(socket_fd_server);
+        return 1;
+    }
 
     // Turn the socket into a listening socket.
     // The second argument controls the connection backlog.
-    listen(socket_fd_server, 1);
+    if (listen(socket_fd_server, 1) < 0)
+    {
+        spdlog::error("Failed to listen on server socket");
+        close(socket_fd_server);
+        return 1;
+    }
 
     spdlog::info("Waiting for client...");
 
@@ -45,13 +76,26 @@ int main()
                                   (sockaddr*)&addr_client,
                                   &client_len);
 
+    if (socket_fd_client < 0)
+    {
+        spdlog::error("Failed to accept client connection");
+        close(socket_fd_server);
+        return 1;
+    }
+
     // Convert the client's binary IP address into a readable string.
     char client_ip[INET_ADDRSTRLEN]{};
 
-    inet_ntop(AF_INET,
-              &addr_client.sin_addr,
-              client_ip,
-              sizeof(client_ip));
+    if (inet_ntop(AF_INET,
+                  &addr_client.sin_addr,
+                  client_ip,
+                  sizeof(client_ip)) == nullptr)
+    {
+        spdlog::error("Failed to convert client IP address");
+        close(socket_fd_client);
+        close(socket_fd_server);
+        return 1;
+    }
 
     // Ports in sockaddr_in are stored in network byte order.
     // Convert the client's port to the host's byte order.
@@ -60,29 +104,47 @@ int main()
 
     // Our protocol:
     //
-    // [ 1 byte: message size ][ message bytes... ]
+    // [ 2 bytes: message size ][ message bytes... ]
     //
-    // First receive the one-byte message size.
-    uint8_t message_size = 0;
+    // The message size is stored in network byte order (big-endian).
+    //
+    // First receive exactly two bytes containing the message size.
+    uint16_t message_size_network = 0;
 
-    ssize_t bytes_received = recv(socket_fd_client,
-                                  &message_size,
-                                  sizeof(message_size),
-                                  0);
+    size_t total_size_received = 0;
 
-    // recv() returns:
-    //   > 0 : number of bytes received
-    //   = 0 : client closed the connection
-    //   < 0 : an error occurred
-    if (bytes_received <= 0)
+    // TCP is a byte stream. One recv() is NOT guaranteed to return
+    // both bytes, so keep receiving until we have exactly two bytes.
+    while (total_size_received < BYTES_MESSAGE_LENGTH)
     {
-        spdlog::error("Failed to receive message size");
+        ssize_t received = recv(socket_fd_client,
+                                reinterpret_cast<uint8_t*>(&message_size_network) + total_size_received,
+                                BYTES_MESSAGE_LENGTH - total_size_received,
+                                0);
 
-        close(socket_fd_client);
-        close(socket_fd_server);
+        // recv() returns:
+        //   > 0 : number of bytes received
+        //   = 0 : client closed the connection
+        //   < 0 : an error occurred
+        if (received < 0 && errno == EINTR)
+            continue;
 
-        return 1;
+        if (received <= 0)
+        {
+            spdlog::error("Failed to receive message size");
+
+            close(socket_fd_client);
+            close(socket_fd_server);
+
+            return 1;
+        }
+
+        total_size_received += static_cast<size_t>(received);
     }
+
+    // Convert the message size from network byte order (big-endian)
+    // to the host's native byte order.
+    uint16_t message_size = ntohs(message_size_network);
 
     spdlog::info("Incoming message size: {}", message_size);
 
@@ -104,10 +166,17 @@ int main()
                                 message_received.size() - total_received,
                                 0);
 
+        if (received < 0 && errno == EINTR)
+            continue;
+
         if (received <= 0)
         {
             spdlog::error("Connection closed while receiving message");
-            break;
+
+            close(socket_fd_client);
+            close(socket_fd_server);
+
+            return 1;
         }
 
         // Remember how many bytes of the message we have so far.

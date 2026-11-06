@@ -13,6 +13,7 @@
     - [2.4. TCP Client](#24-tcp-client)
 - [3. Testing](#3-testing)
 - [4. Conclusion](#4-conclusion)
+- [5. Hexadecimal Numbers](#5-hexadecimal-numbers)
 
 # 0. Premise
 
@@ -157,7 +158,10 @@ Now we have a basic understanding how to encode a number representing a message 
 
 # 2. Implementation
 
-Let's first analyze the client part.
+In this section, our goal is to see, how do we encode a message length on the client side and then how do we process the message length on the server side.
+
+
+## 2.1. Encoding Message Length
 
 ```C++
 // Encode a message using our simple protocol:
@@ -222,4 +226,92 @@ std::vector<uint8_t> encode_message(const std::string& message)
 }
 ```
 
-What does this function do? Actually, it is pretty simple. The function takes `const std::string& message` and outputs a vector `std::vector<uint8_t>` (which is of size 2) which is the encoding of the message length
+What does this function do? Actually, it is pretty simple. The function takes `const std::string& message` and outputs a vector `std::vector<uint8_t>` (which is of size 2) which is the encoding of the message length. 
+
+For example:
+
+**For example:**
+
+Original message: `"I want these cookies!!!"` (23 bytes)
+
+    ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
+    │ I │   │ w │ a │ n │ t │   │ t │ h │ e │ s │ e │   │ c │ o │ o │ k │ i │ e │ s │ ! │ ! │ ! │
+    └───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
+                                              23 bytes
+
+Encoded message:
+
+    ┌──────┬──────┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
+    │ 0x00 │ 0x17 │ I │   │ w │ a │ n │ t │   │ t │ h │ e │ s │ e │   │ c │ o │ o │ k │ i │ e │ s │ ! │ ! │ ! │
+    └──────┴──────┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
+    └─────────────┘ └───────────────────────────────────────────────────────────────────────────────────────────┘
+       2 bytes                                       23 bytes
+   (message length)                               (message data)
+
+                                            25 bytes total
+
+The first 2 bytes encode the message length (23) in big-endian format, followed by the actual message data. 
+
+Notice, how we encode message length using hexadecimal nubers. More about them can be read [here](#5-hexadecimal-numbers).
+
+We use hexadecimal because:
+
+- It makes binary values easier to read.
+- I just wanted to introduce hexadecimal numbers.
+
+I think that everything in this function is pretty easy to understand except these lines:
+
+```C++
+    uint16_t message_size = static_cast<uint16_t>(message_length);
+
+    message_bytes.push_back(static_cast<uint8_t>((message_size >> 8) & 0xFF));
+    message_bytes.push_back(static_cast<uint8_t>(message_size & 0xFF));
+```
+
+Let's analyze them a bit more.
+
+
+# 5. Hexadecimal Numbers
+
+In C++, a hexadecimal number is denoted when `0x` is added before the number. A few examples:
+
+    C++ Hexadecimal Table
+
+    | Decimal | Hexadecimal |
+    |---------|-------------|
+    | 0       | 0x0         |
+    | 1       | 0x1         |
+    | 5       | 0x5         |
+    | 9       | 0x9         |
+    | 10      | 0xA         |
+    | 11      | 0xB         |
+    | 12      | 0xC         |
+    | 13      | 0xD         |
+    | 14      | 0xE         |
+    | 15      | 0xF         |
+    | 16      | 0x10        |
+    | 32      | 0x20        |
+    | 100     | 0x64        |
+    | 255     | 0xFF        |
+
+
+```cpp
+#include <iostream>
+
+
+int main() {
+    int num = 255;
+
+    std::cout << dec << num << std::endl; // 255
+    std::cout << hex << num << std::endl; // ff
+
+    return 0;
+}
+```
+
+Note:
+
+- `hex` - Displays numbers in hexadecimal.
+- `dec` - Displays numbers in decimal.
+- `0x` - Prefix for hexadecimal literals in C++.
+- Hexadecimal uses digits `0-9` and letters `A-F` (base 16).

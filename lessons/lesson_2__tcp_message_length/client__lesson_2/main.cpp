@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 #include <sys/socket.h>
+#include <limits>
 #include <unistd.h>
 #include <vector>
 
@@ -42,7 +43,7 @@ std::vector<uint8_t> encode_message(const std::string& message)
     size_t message_length = message.size();
 
     // Make sure the message length fits into two bytes.
-    if (message_length > UINT16_MAX)
+    if (message_length > std::numeric_limits<uint16_t>::max())
     {
         throw std::runtime_error("Message size over the limit. Maximum possible message size: " +
                                  std::to_string(UINT16_MAX) +

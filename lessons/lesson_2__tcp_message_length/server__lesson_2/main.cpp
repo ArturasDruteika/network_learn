@@ -2,7 +2,9 @@
 
 #include <arpa/inet.h>
 #include <cerrno>
+#include <exception>
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <sys/socket.h>
@@ -16,6 +18,66 @@ constexpr std::string_view IP = "127.0.0.1";
 constexpr uint16_t BYTES_MESSAGE_LENGTH = 2;
 
 static_assert(BYTES_MESSAGE_LENGTH == sizeof(uint16_t));
+
+
+/**
+ * @brief Reads the message length from a TCP socket.
+ *
+ * Reads exactly two bytes from the socket, representing an unsigned
+ * 16-bit message length in network byte order (big-endian).
+ *
+ * Since TCP is a byte stream, multiple recv() calls may be required
+ * to receive the complete length prefix.
+ *
+ * @param socket_fd_client File descriptor of the connected client socket.
+ *
+ * @return Message length in bytes, converted to host byte order.
+ *
+ * @throws std::runtime_error If the client disconnects before both bytes are received.
+ * @throws std::system_error If recv() fails for a reason other than EINTR.
+ */
+uint16_t read_message_size(int socket_fd_client)
+{
+    // Our protocol:
+    //
+    // [ 2 bytes: message size ][ message bytes... ]
+    //
+    // The message size is stored in network byte order (big-endian).
+    //
+    // First receive exactly two bytes containing the message size.
+    uint16_t message_size_network = 0;
+
+    size_t total_size_received = 0;
+
+    // TCP is a byte stream. One recv() is NOT guaranteed to return
+    // both bytes, so keep receiving until we have exactly two bytes.
+    while (total_size_received < BYTES_MESSAGE_LENGTH)
+    {
+        ssize_t received = recv(socket_fd_client,
+                                reinterpret_cast<uint8_t*>(&message_size_network) + total_size_received,
+                                BYTES_MESSAGE_LENGTH - total_size_received,
+                                0);
+
+        if (received < 0 && errno == EINTR)
+            continue;
+
+        if (received == 0)
+            throw std::runtime_error("Client disconnected before the complete message length was received");
+
+        if (received < 0)
+            throw std::system_error(errno,
+                                    std::generic_category(),
+                                    "Failed to receive message length");
+
+        total_size_received += static_cast<size_t>(received);
+    }
+
+    // Convert the message size from network byte order (big-endian)
+    // to the host's native byte order.
+    uint16_t message_size = ntohs(message_size_network);
+
+    return message_size;
+}
 
 
 int main()
@@ -101,52 +163,29 @@ int main()
     // Convert the client's port to the host's byte order.
     int client_port = ntohs(addr_client.sin_port);
 
+    uint16_t message_size = 0;
 
-    // Our protocol:
-    //
-    // [ 2 bytes: message size ][ message bytes... ]
-    //
-    // The message size is stored in network byte order (big-endian).
-    //
-    // First receive exactly two bytes containing the message size.
-    uint16_t message_size_network = 0;
-
-    size_t total_size_received = 0;
-
-    // TCP is a byte stream. One recv() is NOT guaranteed to return
-    // both bytes, so keep receiving until we have exactly two bytes.
-    while (total_size_received < BYTES_MESSAGE_LENGTH)
+    try 
     {
-        ssize_t received = recv(socket_fd_client,
-                                reinterpret_cast<uint8_t*>(&message_size_network) + total_size_received,
-                                BYTES_MESSAGE_LENGTH - total_size_received,
-                                0);
-
-        // recv() returns:
-        //   > 0 : number of bytes received
-        //   = 0 : client closed the connection
-        //   < 0 : an error occurred
-        if (received < 0 && errno == EINTR)
-            continue;
-
-        if (received <= 0)
-        {
-            spdlog::error("Failed to receive message size");
-
-            close(socket_fd_client);
-            close(socket_fd_server);
-
-            return 1;
-        }
-
-        total_size_received += static_cast<size_t>(received);
+        message_size = read_message_size(socket_fd_client);
+        spdlog::info("Message size: {}", message_size);
     }
+    catch (const std::exception& e)
+    {
+        spdlog::error("{}", e.what());
 
-    // Convert the message size from network byte order (big-endian)
-    // to the host's native byte order.
-    uint16_t message_size = ntohs(message_size_network);
+        close(socket_fd_client);
+        close(socket_fd_server);
+        return 1;
+    }
+    catch (...)
+    {
+        spdlog::error("Undefined error");
 
-    spdlog::info("Incoming message size: {}", message_size);
+        close(socket_fd_client);
+        close(socket_fd_server);
+        return 1;
+    }
 
 
     // Create exactly enough space for the incoming payload.

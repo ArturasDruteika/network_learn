@@ -250,6 +250,26 @@ Encoded message:
 
                                             25 bytes total
 
+Do not forget that each entry is actually a binary number taking up exactly 1 byte, so to be fair, this message looks like this:
+
+    Encoded message (binary representation):
+
+    Encoded message (25 bytes):
+
+    ┌──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐
+    │ 00000000 │ 00010111 │ 01001001 │ 00100000 │ 01110111 │ 01100001 │ 01101110 │ 01110100 │ 00100000 │ 01110100 │ 01101000 │ 01100101 │ 01110011 │ 01100101 │ 00100000 │ 01100011 │ 01101111 │ 01101111 │ 01101011 │ 01101001 │ 01100101 │ 01110011 │ 00100001 │ 00100001 │ 00100001 │
+    └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+    │ 0        │ 23       │ I        │ Space    │ w        │ a        │ n        │ t        │ Space    │ t        │ h        │ e        │ s        │ e        │ Space    │ c        │ o        │ o        │ k        │ i        │ e        │ s        │ !        │ !        │ !        │
+    └─────────────────────┘ └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+            2 bytes                                                                                                      23 bytes
+
+                                                                                                                Total: 25 bytes (200 bits)
+
+    Message length:  2 bytes
+    Message data:   23 bytes
+    ────────────────────────
+    Total:          25 bytes (200 bits)
+
 The first 2 bytes encode the message length (23) in big-endian format, followed by the actual message data. 
 
 Notice, how we encode message length using hexadecimal nubers. More about them can be read [here](#5-hexadecimal-numbers).
@@ -264,11 +284,110 @@ I think that everything in this function is pretty easy to understand except the
 ```C++
     uint16_t message_size = static_cast<uint16_t>(message_length);
 
-    message_bytes.push_back(static_cast<uint8_t>((message_size >> 8) & 0xFF));
-    message_bytes.push_back(static_cast<uint8_t>(message_size & 0xFF));
+    message_bytes.push_back(static_cast<uint8_t>(message_size >> 8));
+    message_bytes.push_back(static_cast<uint8_t>(message_size));
 ```
 
-Let's analyze them a bit more.
+Let's analyze these a bit more. As seen in the previous sketch, we need to transform the original message `[I][][c][o][n][t][a][i][n][][-][][2][0][][b][y][t][e][s]` so that this message, at the beginning, for the first 2 bytes, would have the message length (in hexadecimal) encoded. The outer product of this message should look like: `[0x00][0x14][I][][c][o][n][t][a][i][n][][-][][2][0][][b][y][t][e][s]`.
+
+First of all, we create a variable that in C++ is 2 bytes by itself: `uint16_t`, and we cast to it the `message_length` that we extracted before. We need it, because this is the actual size that we are going to use for message length encoding.
+
+You may notice that the `std::vector<uint8_t> encode_message(const std::string& message)` function returns a vector of `uint8_t`, so where does the `uint16_t message_size` dissapear? 
+
+This is exactly where the bottom 2 lines come into play. These 2 lines, with the help of a little bit of [bit shifting](https://www.geeksforgeeks.org/cpp/left-shift-right-shift-operators-c-cpp/) transform the `uint16_t message_size` into 2 `uint8_t` numbers and append them to the encoded message vector. This is how these 2 lines work:
+
+    16-bit integer (uint16_t message_size):
+    00000000 00010100
+
+    Into two separate bytes:
+    00000000 - 1-st byte
+    00010100 - 2-nd byte
+
+Perfect, we understood how to encode a message. Let's understand how a server side (or the one that receives the messages) processes the message when it receives it.
+
+
+## 2.2. Reading the Message
+
+```C++
+/**
+ * @brief Reads the message length from a TCP socket.
+ *
+ * Reads exactly two bytes from the socket, representing an unsigned
+ * 16-bit message length in network byte order (big-endian).
+ *
+ * Since TCP is a byte stream, multiple recv() calls may be required
+ * to receive the complete length prefix.
+ *
+ * @param socket_fd_client File descriptor of the connected client socket.
+ *
+ * @return Message length in bytes, converted to host byte order.
+ *
+ * @throws std::runtime_error If the client disconnects before both bytes are received.
+ * @throws std::system_error If recv() fails for a reason other than EINTR.
+ */
+uint16_t read_message_size(int socket_fd_client)
+{
+    // Our protocol:
+    //
+    // [ 2 bytes: message size ][ message bytes... ]
+    //
+    // The message size is stored in network byte order (big-endian).
+    //
+    // First receive exactly two bytes containing the message size.
+    uint16_t message_size_network = 0;
+
+    size_t total_size_received = 0;
+
+    // TCP is a byte stream. One recv() is NOT guaranteed to return
+    // both bytes, so keep receiving until we have exactly two bytes.
+    while (total_size_received < BYTES_MESSAGE_LENGTH)
+    {
+        ssize_t received = recv(socket_fd_client,
+                                reinterpret_cast<uint8_t*>(&message_size_network) + total_size_received,
+                                BYTES_MESSAGE_LENGTH - total_size_received,
+                                0);
+
+        if (received < 0 && errno == EINTR)
+            continue;
+
+        if (received == 0)
+            throw std::runtime_error("Client disconnected before the complete message length was received");
+
+        if (received < 0)
+            throw std::system_error(errno,
+                                    std::generic_category(),
+                                    "Failed to receive message length");
+
+        total_size_received += static_cast<size_t>(received);
+    }
+
+    // Convert the message size from network byte order (big-endian)
+    // to the host's native byte order.
+    uint16_t message_size = ntohs(message_size_network);
+
+    return message_size;
+}
+```
+
+The goal of this function is simple. This function gets a socket, where some data, with unknown size, is buffered, and spits out the message length that is not larger a maximum value possible using 2 bytes (`uint16_t`).
+
+Let's analyze line by line what each line does.
+
+```C++
+uint16_t message_size_network = 0;
+```
+
+This is the variable that is going to store the actual message length.
+
+```C++
+size_t total_size_received = 0;
+```
+
+Variable that stores resu
+
+
+
+
 
 
 # 5. Hexadecimal Numbers

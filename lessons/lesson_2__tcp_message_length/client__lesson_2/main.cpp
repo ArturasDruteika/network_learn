@@ -76,8 +76,8 @@ std::vector<uint8_t> encode_message(const std::string& message)
     //
     // First byte  = 0x01
     // Second byte = 0x2C
-    message_bytes.push_back(static_cast<uint8_t>((message_size >> 8) & 0xFF));
-    message_bytes.push_back(static_cast<uint8_t>(message_size & 0xFF));
+    message_bytes.push_back(static_cast<uint8_t>(message_size >> 8));
+    message_bytes.push_back(static_cast<uint8_t>(message_size));
 
     // Append the actual message bytes after the size bytes.
     message_bytes.insert(message_bytes.end(),

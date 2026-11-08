@@ -22,26 +22,40 @@ int main()
     client_addr.sin_family = AF_INET;
     client_addr.sin_port = htons(PORT_CLIENT);
 
-    inet_pton(AF_INET, IP_CLIENT.data(), &client_addr.sin_addr);
+    inet_pton(AF_INET,
+              IP_CLIENT.data(),
+              &client_addr.sin_addr);
 
-    bind(socket_fd, (sockaddr*)&client_addr, sizeof(client_addr));
+    bind(socket_fd,
+         (sockaddr*)&client_addr,
+         sizeof(client_addr));
 
     // Server's address
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT_SERVER);
 
-    inet_pton(AF_INET, IP_SERVER.data(), &server_addr.sin_addr);
+    inet_pton(AF_INET,
+              IP_SERVER.data(),
+              &server_addr.sin_addr);
 
-    connect(socket_fd, (sockaddr*)&server_addr, sizeof(server_addr));
+    connect(socket_fd,
+            (sockaddr*)&server_addr,
+            sizeof(server_addr));
 
     const char* message = "ping";
 
-    send(socket_fd, message, strlen(message) + 1, 0);
+    send(socket_fd,
+         message,
+         strlen(message) + 1,
+         0);
 
     char buffer[1024]{};
 
-    recv(socket_fd, buffer, sizeof(buffer), 0);
+    recv(socket_fd,
+         buffer,
+         sizeof(buffer),
+         0);
 
     spdlog::info("Server replied: {}", buffer);
 

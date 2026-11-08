@@ -11,9 +11,8 @@
     - [2.2. Receiving All Bytes](#22-receiving-all-bytes)
     - [2.3. TCP Server](#23-tcp-server)
     - [2.4. TCP Client](#24-tcp-client)
-- [3. Testing](#3-testing)
-- [4. Conclusion](#4-conclusion)
-- [5. Hexadecimal Numbers](#5-hexadecimal-numbers)
+- [3. Conclusion](#3-conclusion)
+- [4. Hexadecimal Numbers](#4-hexadecimal-numbers)
 
 # 0. Premise
 
@@ -306,7 +305,7 @@ This is exactly where the bottom 2 lines come into play. These 2 lines, with the
 Perfect, we understood how to encode a message. Let's understand how a server side (or the one that receives the messages) processes the message when it receives it.
 
 
-## 2.2. Reading the Message
+## 2.2. Reading the Message Length
 
 ```C++
 /**
@@ -383,14 +382,259 @@ This is the variable that is going to store the actual message length.
 size_t total_size_received = 0;
 ```
 
-Variable that stores resu
+Variable that stores total received bytes. Remember that a single call of `recv(...)` is not guaranteed to return everything we need, so the server (or the receiver) needs to track how many total bytes it has received.
+
+```C++
+while (total_size_received < BYTES_MESSAGE_LENGTH)
+{
+    ...
+}
+```
+
+Main while loop that iterates not more than `BYTES_MESSAGE_LENGTH` number of iterations. We need this loop, because the server needs to make sure that it receives `BYTES_MESSAGE_LENGTH` number of bytes. Those `BYTES_MESSAGE_LENGTH` number of bytes will tell what is the message length.
+
+```C++
+ssize_t received = recv(socket_fd_client,
+                        reinterpret_cast<uint8_t*>(&message_size_network) + total_size_received,
+                        BYTES_MESSAGE_LENGTH - total_size_received,
+                        0);
+
+...
+
+total_size_received += static_cast<size_t>(received);
+```
+
+The server reads the data from the socket and stores the number of received bytes to the `received` variable. Do not forget that `recv(...)` returns the number of received bytes.
+
+The 2 important arguments that we pass are these:
+
+- `reinterpret_cast<uint8_t*>(&message_size_network) + total_size_received`: pointer to the first byte of the `message_size_network` + whatever `total_size_received` has. So if `total_size_received` is 0, then `reinterpret_cast<uint8_t*>(&message_size_network)` points to the first byte of `message_size_network`, if `total_size_received` is 1, then `reinterpret_cast<uint8_t*>(&message_size_network)` points to the second byte of `message_size_network`.
+- `BYTES_MESSAGE_LENGTH - total_size_received`: read up to that many bytes from the socket.
+
+```C++
+total_size_received += static_cast<size_t>(received);
+```
+
+If, by any chance `recv(...)` returned only a single byte, then the condition in the while loop is not met, so we are going to have another iteration. Because of it, we need to update the `total_size_received` that tracks how many bytes we have already received.
+
+This scheme summerizes what this while loop, whose goal is to tell the message length, goal is:
+
+                    START
+                      |
+                      v
+          total_size_received = 0
+                      |
+                      v
+       +-----------------------------+
+       | total_size_received < 2 ?   |<---------------+
+       +-----------------------------+                |
+              |             |                         |
+             YES            NO                        |
+              |             |                         |
+              v             v                         |
+       +----------------+  FINISH                     |
+       |     recv()     |                             |
+       |                |                             |
+       | Read up to     |                             |
+       | 2 - total_size |                             |
+       | bytes          |                             |
+       +----------------+                             |
+              |                                       |
+              v                                       |
+       +-----------------------------+                |
+       | total_size_received         |                |
+       |     += received             |                |
+       +-----------------------------+                |
+              |                                       |
+              +---------------------------------------+
+
+Last, but not least, we need to understand how we handle problems during reading from socket. We need these 3 `if` statements, because `recv(...)` does not always return the number of bytes received successfully. `recv(...)` can, essentially, return these values:
+
+| Return value | Meaning | What your code should do |
+|--------------|---------|--------------------------|
+| `> 0` | Successfully received bytes | Add to `total_size_received` |
+| `0` | Client closed its sending side (EOF) | Throw an exception |
+| `-1` | An error occurred | Retry or throw, depending on the error |
+
+For this reason, we need these 3 `if` statements:
+
+```C++
+if (received < 0 && errno == EINTR)
+    continue;
+
+if (received == 0)
+    throw std::runtime_error("Client disconnected before the complete message length was received");
+
+if (received < 0)
+    throw std::system_error(errno,
+                            std::generic_category(),
+                            "Failed to receive message length");
+```
+
+These `if` statements, in chronological order, do:
+
+- The first `if` statement checks the condition when the `recv(...)` is waiting for bytes and a interrupt signal is received. This is why the `&& errno == EINTR` exists. Imagine a server started this loop and during the waiting (do not forget that if there are no bytes to be read in the socket, `recv(...)` becomes a blocking operation) period an external interrupt signal was received.
+
+- The second `if` statement checks if the client has disconnected once `recv(...)` was invoked. When a client disconnects, then `recv(...)` return `0`.
+
+- The third if statement handles all other problems when receiving bytes from the socket.
+
+Great, now we know how to encode bytes length and how to read them from the socket.
 
 
+## 2.3. Sending and Receiving the Message
+
+```C++
+// client.cpp
+std::vector<uint8_t> message_bytes = encode_message(message_1);
 
 
+// Send the encoded bytes through the TCP connection.
+//
+// TCP may send fewer bytes than requested in a single send().
+// Keep sending until the entire encoded message has been sent.
+size_t total_sent = 0;
+
+while (total_sent < message_bytes.size())
+{
+    ssize_t sent = send(socket_fd_client,
+                        message_bytes.data() + total_sent,
+                        message_bytes.size() - total_sent,
+                        0);
+
+    if (sent < 0 && errno == EINTR)
+        continue;
+
+    if (sent <= 0)
+    {
+        spdlog::error("Failed to send message");
+        close(socket_fd_client);
+        return 1;
+    }
+
+    // Remember how many bytes we have sent so far.
+    total_sent += static_cast<size_t>(sent);
+}
+
+// server.cpp
+std::string message_received;
+message_received.resize(message_size);
+
+size_t total_received = 0;
+
+// TCP is a byte stream. One recv() is NOT guaranteed to return
+// the entire message, so keep receiving until we have all bytes.
+while (total_received < message_received.size())
+{
+    ssize_t received = recv(socket_fd_client,
+                            // Continue writing after the bytes we already received.
+                            message_received.data() + total_received,
+                            // Ask only for the number of bytes still missing.
+                            message_received.size() - total_received,
+                            0);
+
+    if (received < 0 && errno == EINTR)
+        continue;
+
+    if (received <= 0)
+    {
+        spdlog::error("Connection closed while receiving message");
+
+        close(socket_fd_client);
+        close(socket_fd_server);
+
+        return 1;
+    }
+
+    // Remember how many bytes of the message we have so far.
+    total_received += static_cast<size_t>(received);
+}
+```
+
+If you notice, these 2 loops that are responsible for sending and receiving the data are actually very similar to the way the server was reading the message length. And, to be honest, this is a common practice how people are designing their programs when dealing with sockets. 
+
+In a sense, the design follows these steps:
+
+1. Define how many bytes we need to transfer (send or receive)
+2. Initialize a counter to track the transfer process
+3. Use a `while` loop to continue transfering bytes
+4. Call `send(...)` or `recv(...)` (depending on the role) to transfer the remaining bytes
+5. Handle possible errors
+6. Update the counter after a successful operation
+7. Repeat until all bytes have been transfered
+
+The important thing to understand is that TCP is a byte stream and not a message-based protocol. TCP guarantees that bytes are delivered in order, but does not guarantee that a single `send(...)` corresponds to a single `recv(...)`.
+
+This is the entire byte transfer scheme that happens most of the time:
+
+    CLIENT                                     SERVER
+    |                                          |
+    |  1. Encode message                       |
+    |     [Length: 2 bytes][Message: N bytes]  |
+    |                                          |
+    |  2. Initialize sending counter           |
+    |     total_sent = 0                       |
+    |                                          |
+    |  3. Send encoded bytes                   |
+    |     (repeat send() until all bytes       |
+    |      have been sent)                     |
+    | ---------------------------------------> |
+    |                                          |
+    |                             4. Read 2 bytes
+    |                                (message length)
+    |                                          |
+    |                             5. Decode length
+    |                                (network to host)
+    |                                          |
+    |                             6. Read N bytes
+    |                                (message data)
+    |                                          |
+    |                             7. Process message
+    |                                          |
+    |                             8. Encode response
+    |                                [Length][Response]
+    |                                          |
+    |                             9. Initialize sending
+    |                                counter
+    |                                total_sent = 0
+    |                                          |
+    |                            10. Send response
+    |                                (repeat send()
+    |                                 until all bytes
+    |                                 have been sent)
+    | <--------------------------------------- |
+    |                                          |
+    | 11. Read 2 bytes                         |
+    |     (response length)                    |
+    |                                          |
+    | 12. Decode response length               |
+    |     (network to host)                    |
+    |                                          |
+    | 13. Read N bytes                         |
+    |     (response data)                      |
+    |                                          |
+    | 14. Process response                     |
+    |                                          |
+    | 15. Close connection (if finished)       |
+    | ---------------------------------------> |
+    |                                          |
+    |                            16. Detect EOF
+    |                                and close socket
+    |                                          |
+    v                                          v
+    END                                        END
 
 
-# 5. Hexadecimal Numbers
+# 3. Conclusion
+
+In this lesson, we learnt how to implement a simple length-prefixed protocol over TCP.
+
+We covered how to encode a message, using a predefined number of bytes and how to correctly read the message based on the decoded length of the message. 
+
+These simple concepts are the building blocks of designing network systems. Almost all the networking protocols use the message length idea, it just might be implemented in other way. Encoding and reading the message length is the way to tell the system where a message begins and where it ends.
+
+
+# 4. Hexadecimal Numbers
 
 In C++, a hexadecimal number is denoted when `0x` is added before the number. A few examples:
 

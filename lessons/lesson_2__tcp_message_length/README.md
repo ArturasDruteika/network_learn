@@ -67,7 +67,7 @@ Also, in lesson 1 the server, kind of, expected only a single client to connect,
     └───┴───┴───┴───┴───┘
            5 bytes
 
-If the client does the reading after the 3-rd client message has been sent, then we are not certain in what order the server is going to receive the data once. The server might receive all 3 messages as a single message, for example:
+If the server reads the buffered data from the socket after the 3-rd message has been sent by the client, then we are not certain that calling `recv(...)` will generate 3 groups of messages in the exact start / finish order of the sent messages. In fact we might receive a single buffered looking like this:
 
     recv() #1 (17 bytes):
 
@@ -108,7 +108,7 @@ By encoding a message length we tell can easily tell the receiver (the one thatc
 To add on why encoding mesasge length is great:
 
 - **Efficiant memory allocation**. By knowing the exact message length we can assign that number as the buffer size that will store that message. (In lesson 1 we had to predefine a buffer size of 1024 bytes, which was a huge resource throw away, since the sent message took less than 10 bytes)
-- **Detecting incomplete messages**. If we know the message length, we can also know if the message is corrupt or not complete if the received message is less than the actual size. Without knowing the actual message length, we cannot be sure if the received message is full. This is especially critical once we start downloading / uploading files, because the file size after the `send()` or `recv()` operation must occupy the same amount of space.
+- **Detecting incomplete messages**. If we know the message length, we can also know if the message is incomplete if the received message is less than the actual size. Without knowing the actual message length, we cannot be sure if the received message is full. This is especially critical once we start downloading / uploading files, because the file size after the `send()` or `recv()` operation must occupy the same amount of space.
 - **Encode messages of different sizes**. We are not bound by some predefined message length. Each message can have it's own size.
 
 How to encode a message length in the message that is about to be sent?
@@ -130,7 +130,7 @@ This message is 5 bytes long. What if we could extend this message at the front 
     (message  (message data)
     length)   
 
-           9 bytes (total)
+           6 bytes (total)
 
 
 That is one of the most common and simple ways to encode a message length.
@@ -146,7 +146,7 @@ To solve this, we can say that 4 bytes will be used for encoding a message lengt
     ┌───┬───┬───┬───┬───┬───┬───┬───┬───┐
     │ 0 │ 0 │ 0 │ 5 │ H │ E │ L │ L │ O │
     └───┴───┴───┴───┴───┴───┴───┴───┴───┘
-                    8 bytes
+                    9 bytes
 
 Since we use 4 bytes, we can encode a message that is this big 4,294,967,295.
 
@@ -225,7 +225,7 @@ std::vector<uint8_t> encode_message(const std::string& message)
 }
 ```
 
-What does this function do? Actually, it is pretty simple. The function takes `const std::string& message` and outputs a vector `std::vector<uint8_t>` (which is of size 2) which is the encoding of the message length. 
+What does this function do? Actually, it is pretty simple. The function takes `const std::string& message` and outputs a number `uint16_t` (which is of size 2 bytes) which is the encoding of the message length. 
 
 For example:
 
@@ -391,7 +391,7 @@ while (total_size_received < BYTES_MESSAGE_LENGTH)
 }
 ```
 
-Main while loop that iterates not more than `BYTES_MESSAGE_LENGTH` number of iterations. We need this loop, because the server needs to make sure that it receives `BYTES_MESSAGE_LENGTH` number of bytes. Those `BYTES_MESSAGE_LENGTH` number of bytes will tell what is the message length.
+Main while loop that iterates not more than if the received bytes count is less than `BYTES_MESSAGE_LENGTH`. We need this loop, because the server needs to make sure that it receives `BYTES_MESSAGE_LENGTH` number of bytes. Those `BYTES_MESSAGE_LENGTH` number of bytes will tell what is the message length.
 
 ```C++
 ssize_t received = recv(socket_fd_client,

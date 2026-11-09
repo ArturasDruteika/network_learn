@@ -285,7 +285,7 @@ I think most of this function is fairly easy to understand, except for the follo
     message_bytes.push_back(static_cast<uint8_t>(message_size));
 ```
 
-Let's examine these lines in more detail. As shown in the previous diagram, we need to transform the original message `[I][][c][o][n][t][a][i][n][][-][][2][0][][b][y][t][e][s]` so that its first two bytes contain the encoded message length, represented in hexadecimal. The resulting encoded message should look like this: `[0x00][0x14][I][][c][o][n][t][a][i][n][][-][][2][0][][b][y][t][e][s]`.
+Let's examine these lines in more detail. As shown in the previous diagram, we need to transform the original message `[I][][c][o][n][t][a][i][n][][-][][2][0][][b][y][t][e][s]` so that its first two bytes contain the encoded message length, (just for this example, I represent it in hexadecimal). The resulting encoded message should look like this: `[0x00][0x14][I][][c][o][n][t][a][i][n][][-][][2][0][][b][y][t][e][s]`.
 
 First, we create a variable that occupies two bytes in C++: `uint16_t`, and cast the previously calculated `message_length` to that type. We need it because this is the size that we are going to use for message length encoding.
 
@@ -406,7 +406,7 @@ The server reads the data from the socket and stores the number of received byte
 
 The two important arguments we pass are:
 
-- `reinterpret_cast<uint8_t*>(&message_size_network) + total_size_received`: a pointer to the first byte of the `message_size_network` + whatever `total_size_received` has. So if `total_size_received` is 0, then `reinterpret_cast<uint8_t*>(&message_size_network)` points to the first byte of `message_size_network`, if `total_size_received` is 1, then `reinterpret_cast<uint8_t*>(&message_size_network)` points to the second byte of `message_size_network`.
+- `reinterpret_cast<uint8_t*>(&message_size_network) + total_size_received`: returns a pointer to the first byte of `message_size_network`. By adding `total_size_received`, we move the pointer forward by the number of bytes already received. For example, if `total_size_received` is `0`, the pointer refers to the first byte. If it is 1, the pointer refers to the second byte.
 - `BYTES_MESSAGE_LENGTH - total_size_received`: read up to that many bytes from the socket.
 
 ```C++

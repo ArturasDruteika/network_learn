@@ -16,21 +16,21 @@
 
 # 0. Premise
 
-In this lesson, our goal is to learn how to utilate a message length, which is one of the key techniques for efficient and reliable data transfer through TCP sockets. To be honest, this same technique (at least the idea of encoding a message length) is not TCP socket only. A lot of different technologies use message length encoding, for example:
+In this lesson, our goal is to learn how to use message lengths, which is one of the key techniques for efficient and reliable data transfer through TCP sockets. This technique (or at least the idea of encoding a message length) is not limited to TCP sockets. Many different technologies use message length encoding, including:
 
 * UDP sockets (which we are going to cover in later lessons)
-* ethernet
-* bluetooth
+* Ethernet
+* Bluetooth
 * hard drives
 
-Even spacecraft that orbit other planets also use the same principles when they want to send data back to earth. In other words, message length encoding is used almost everywhere where networking or data transfer is applied.
+Even spacecraft orbiting other planets use the same principles when they want to send data back to Earth. In other words, message length encoding is used almost everywhere networking or data transfer is involved.
 
 
 # 1. Message Length
 
-First of all, we need to understand what is a message length? 
+First, we need to understand what a message length is. 
 
-**Message Length** is a number that answers the question: how long is this current message? Here are a few examples of what it means:
+**Message length** is a number that answers the question: How long is this message? Here are a few examples of what it means:
 
 * "I like cats" - message length: 11
 * "I own 3 cats and 1 dog" - message length: 22
@@ -41,16 +41,16 @@ What problem does it solve?
 
 ## 1.1. Problem
 
-In lesson 1, in the server side we were doing this:
+In Lesson 1, we did the following on the server side:
 
 ```C++
 char buffer[1024]{};
 recv(client_socket, buffer, sizeof(buffer), 0);
 ```
 
-In a sense, we were reserving a char buffer of size 1024 for the message. Also, the 3-rd argument in the `recv(...)` function tells us that at most we are expecting 1024 at most, but that des not mean "give me exactly 1024 bytes".
+In a sense, we were allocating a character buffer with a size of 1,024 bytes for the message. Additionally, the third argument of the `recv(...)` function specifies that we can receive at most 1,024 bytes, but that does not mean "give me exactly 1024 bytes".
 
-Also, in lesson 1 the server, kind of, expected only a single client to connect, but what if there is a situation where a client sends 3 messages, one after the other:
+Additionally, in Lesson 1, the server was designed to handle only a single client connection. But what happens if a client sends three messages, one after another?
 
     ┌───┬───┬───┬───┬───┬───┬───┬───┐
     │ P │ I │ N │ G │ P │ i │ N │ G │
@@ -67,7 +67,7 @@ Also, in lesson 1 the server, kind of, expected only a single client to connect,
     └───┴───┴───┴───┴───┘
            5 bytes
 
-If the server reads the buffered data from the socket after the 3-rd message has been sent by the client, then we are not certain that calling `recv(...)` will generate 3 groups of messages in the exact start / finish order of the sent messages. In fact we might receive a single buffered looking like this:
+If the server reads the buffered data from the socket after the client has sent the third message, we cannot be certain that calling `recv(...)` three times will return three separate messages with the same boundaries as the original messages. In fact, we might receive all the data in a single buffer that looks like this:
 
     recv() #1 (17 bytes):
 
@@ -76,7 +76,7 @@ If the server reads the buffered data from the socket after the 3-rd message has
     └───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
                                 17 bytes
 
-It can also receive data in this way:
+The server might also receive the data in the following way:
 
     recv() #1 (3 bytes):
 
@@ -96,22 +96,22 @@ It can also receive data in this way:
     │ H │ A │ H │ E │ L │ L │ O │
     └───┴───┴───┴───┴───┴───┴───┘
 
-Do you see the problem now? For all the aforementioned problems and more, we must somehow encode a message length in order to know how many bytes of data a server or a client (later in the future we will talk about this) should expect.
+Do you see the problem now? To solve these problems, we need to encode the message length in order to know how many bytes of data a server or client should expect. We will discuss this in more detail later.
 
 
 ## 1.2. Solution
 
 One of the best ways to solve this problem is to encode the message length into the message itself. Before continuing, let's understand why encoding a message length is useful.
 
-By encoding a message length we tell can easily tell the receiver (the one thatcalls `recv()`) how many bytes should be read from the bytes stream. If we know the message length, we can construct different messages from the data stream. 
+By encoding the message length, we can easily tell the receiver (the one that calls `recv()`) how many bytes should be read from the byte stream. If we know the message length, we can reconstruct individual messages from the data stream. 
 
-To add on why encoding mesasge length is great:
+There are several additional benefits to encoding message lengths:
 
-- **Efficiant memory allocation**. By knowing the exact message length we can assign that number as the buffer size that will store that message. (In lesson 1 we had to predefine a buffer size of 1024 bytes, which was a huge resource throw away, since the sent message took less than 10 bytes)
-- **Detecting incomplete messages**. If we know the message length, we can also know if the message is incomplete if the received message is less than the actual size. Without knowing the actual message length, we cannot be sure if the received message is full. This is especially critical once we start downloading / uploading files, because the file size after the `send()` or `recv()` operation must occupy the same amount of space.
-- **Encode messages of different sizes**. We are not bound by some predefined message length. Each message can have it's own size.
+- **Efficient memory allocation**. By knowing the exact message length, we can use that number to determine the buffer size needed to store the message. (In lesson 1 we had to predefine a buffer size of 1024 bytes, which resulted in unnecessary memory usage, since the sent message took less than 10 bytes)
+- **Detecting incomplete messages**. If we know the message length, we can determine whether a message is incomplete by comparing the number of received bytes with the expected message length. Without knowing the actual message length, we cannot be sure whether we have received the complete message. This is especially critical once we start downloading / uploading files, because the number of bytes received must match the expected file size.
+- **Encode messages of different sizes**. We are not bound by some predefined message length. Each message can have its own size.
 
-How to encode a message length in the message that is about to be sent?
+How do we encode the message length in the message we are about to send?
 
 Let's take this message:
 
@@ -120,7 +120,7 @@ Let's take this message:
     └───┴───┴───┴───┴───┘
            5 bytes
 
-This message is 5 bytes long. What if we could extend this message at the front by adding a predefined number of bytes that would store a number defining a message length like this:
+This message is 5 bytes long. What if we could prepend a predefined number of bytes to this message to store a number representing the message length, like this:
 
     ┌───┬───┬───┬───┬───┬───┐
     │ 5 │ H │ E │ L │ L │ O │
@@ -135,29 +135,29 @@ This message is 5 bytes long. What if we could extend this message at the front 
 
 That is one of the most common and simple ways to encode a message length.
 
-One thing to pay attention to is that each block in the message is of size 1 byte. So by this logic, the number 5 is also represented in the form of 1 byte. If you remember the binary, you should know that a number 5 looks like:
+One thing to pay attention to is that each block in the message is one byte in size. So by this logic, the number 5 is also represented in the form of 1 byte. If you remember how binary numbers work, you should know that the number 5 is represented as follows:
 
     00000101
 
-Remember that a maximum positive integer (`uint_8`) number that a 1 byte can represent is 255. That means that a message larger than that cannot be encoded if we use a single byte for message length.
+Remember that the maximum value that a one-byte unsigned integer (`uint8_t`) can represent is 255. This means that a message longer than 255 bytes cannot be encoded if we use a single byte for message length.
 
-To solve this, we can say that 4 bytes will be used for encoding a message length. This way a message could look like this:
+To solve this, we can say that 4 bytes will be used for encoding a message length. This way, a message could look like this:
 
     ┌───┬───┬───┬───┬───┬───┬───┬───┬───┐
     │ 0 │ 0 │ 0 │ 5 │ H │ E │ L │ L │ O │
     └───┴───┴───┴───┴───┴───┴───┴───┴───┘
                     9 bytes
 
-Since we use 4 bytes, we can encode a message that is this big 4,294,967,295.
+Since we use 4 bytes, we can encode messages up to 4,294,967,295 bytes in length.
 
-The only predefined rule we need to follow is that the sender and the receiver have to know beforehand the number of bytes that will comprise a message length. For example if a client sends a message where 2 bytes encode a message length, then a server also has to know that the first 2 bytes will tell the message length.
+The only predefined rule we need to follow is that the sender and the receiver have to know beforehand the number of bytes that will comprise a message length. For example, if a client sends a message in which two bytes encode the message length, the server must also know that the first two bytes represent the message length.
 
-Now we have a basic understanding how to encode a number representing a message length at the beginning of the message itself.
+Now we have a basic understanding of how to encode a number representing a message length at the beginning of the message itself.
 
 
 # 2. Implementation
 
-In this section, our goal is to see, how do we encode a message length on the client side and then how do we process the message length on the server side.
+In this section, our goal is to understand how to encode a message length on the client side and then how to process it on the server side.
 
 
 ## 2.1. Encoding Message Length
@@ -225,9 +225,7 @@ std::vector<uint8_t> encode_message(const std::string& message)
 }
 ```
 
-What does this function do? Actually, it is pretty simple. The function takes `const std::string& message` and outputs a number `uint16_t` (which is of size 2 bytes) which is the encoding of the message length. 
-
-For example:
+What does this function do? The answer is quite simple. The function takes a `const std::string& message` parameter and returns a `std::vector<uint8_t>` containing the encoded message. 
 
 **For example:**
 
@@ -249,7 +247,7 @@ Encoded message:
 
                                             25 bytes total
 
-Do not forget that each entry is actually a binary number taking up exactly 1 byte, so to be fair, this message looks like this:
+Do not forget that each entry represents a binary value that occupies exactly one byte, so, more precisely, the message looks like this:
 
     Encoded message (binary representation):
 
@@ -271,14 +269,14 @@ Do not forget that each entry is actually a binary number taking up exactly 1 by
 
 The first 2 bytes encode the message length (23) in big-endian format, followed by the actual message data. 
 
-Notice, how we encode message length using hexadecimal nubers. More about them can be read [here](#5-hexadecimal-numbers).
+Notice how we encode the message length using hexadecimal numbers. You can read more about them [here](#5-hexadecimal-numbers).
 
 We use hexadecimal because:
 
 - It makes binary values easier to read.
 - I just wanted to introduce hexadecimal numbers.
 
-I think that everything in this function is pretty easy to understand except these lines:
+I think most of this function is fairly easy to understand, except for the following lines:
 
 ```C++
     uint16_t message_size = static_cast<uint16_t>(message_length);
@@ -287,22 +285,22 @@ I think that everything in this function is pretty easy to understand except the
     message_bytes.push_back(static_cast<uint8_t>(message_size));
 ```
 
-Let's analyze these a bit more. As seen in the previous sketch, we need to transform the original message `[I][][c][o][n][t][a][i][n][][-][][2][0][][b][y][t][e][s]` so that this message, at the beginning, for the first 2 bytes, would have the message length (in hexadecimal) encoded. The outer product of this message should look like: `[0x00][0x14][I][][c][o][n][t][a][i][n][][-][][2][0][][b][y][t][e][s]`.
+Let's examine these lines in more detail. As shown in the previous diagram, we need to transform the original message `[I][][c][o][n][t][a][i][n][][-][][2][0][][b][y][t][e][s]` so that its first two bytes contain the encoded message length, represented in hexadecimal. The resulting encoded message should look like this: `[0x00][0x14][I][][c][o][n][t][a][i][n][][-][][2][0][][b][y][t][e][s]`.
 
-First of all, we create a variable that in C++ is 2 bytes by itself: `uint16_t`, and we cast to it the `message_length` that we extracted before. We need it, because this is the actual size that we are going to use for message length encoding.
+First, we create a variable that occupies two bytes in C++: `uint16_t`, and cast the previously calculated `message_length` to that type. We need it because this is the size that we are going to use for message length encoding.
 
-You may notice that the `std::vector<uint8_t> encode_message(const std::string& message)` function returns a vector of `uint8_t`, so where does the `uint16_t message_size` dissapear? 
+You may notice that the `std::vector<uint8_t> encode_message(const std::string& message)` function returns a vector of `uint8_t`, so where does the `uint16_t message_size` variable go? 
 
-This is exactly where the bottom 2 lines come into play. These 2 lines, with the help of a little bit of [bit shifting](https://www.geeksforgeeks.org/cpp/left-shift-right-shift-operators-c-cpp/) transform the `uint16_t message_size` into 2 `uint8_t` numbers and append them to the encoded message vector. This is how these 2 lines work:
+This is exactly where the bottom 2 lines come into play. These two lines use [bit shifting](https://www.geeksforgeeks.org/cpp/left-shift-right-shift-operators-c-cpp/) to transform the `uint16_t message_size` into two `uint8_t` numbers and append them to the encoded message vector. Here's how these two lines work:
 
     16-bit integer (uint16_t message_size):
     00000000 00010100
 
     Into two separate bytes:
-    00000000 - 1-st byte
-    00010100 - 2-nd byte
+    00000000 - 1st byte
+    00010100 - 2nd byte
 
-Perfect, we understood how to encode a message. Let's understand how a server side (or the one that receives the messages) processes the message when it receives it.
+Great! Now we understand how to encode a message. Next, let's examine how the server (or any other receiver) processes an incoming message.
 
 
 ## 2.2. Reading the Message Length
@@ -368,9 +366,9 @@ uint16_t read_message_size(int socket_fd_client)
 }
 ```
 
-The goal of this function is simple. This function gets a socket, where some data, with unknown size, is buffered, and spits out the message length that is not larger a maximum value possible using 2 bytes (`uint16_t`).
+The goal of this function is simple. This function takes a socket containing buffered data of an unknown length and returns the message length, which cannot exceed the maximum value representable by two bytes (`uint16_t`).
 
-Let's analyze line by line what each line does.
+Let's examine the function line by line.
 
 ```C++
 uint16_t message_size_network = 0;
@@ -382,7 +380,7 @@ This is the variable that is going to store the actual message length.
 size_t total_size_received = 0;
 ```
 
-Variable that stores total received bytes. Remember that a single call of `recv(...)` is not guaranteed to return everything we need, so the server (or the receiver) needs to track how many total bytes it has received.
+This variable stores the total number of bytes received. Remember that a single call to `recv(...)` is not guaranteed to return everything we need, so the server (or the receiver) needs to track how many bytes it has received in total.
 
 ```C++
 while (total_size_received < BYTES_MESSAGE_LENGTH)
@@ -391,7 +389,7 @@ while (total_size_received < BYTES_MESSAGE_LENGTH)
 }
 ```
 
-Main while loop that iterates not more than if the received bytes count is less than `BYTES_MESSAGE_LENGTH`. We need this loop, because the server needs to make sure that it receives `BYTES_MESSAGE_LENGTH` number of bytes. Those `BYTES_MESSAGE_LENGTH` number of bytes will tell what is the message length.
+This is the main `while` loop, which continues executing as long as the number of received bytes is less than `BYTES_MESSAGE_LENGTH`. We need this loop because the server must ensure that it receives exactly `BYTES_MESSAGE_LENGTH` bytes. These bytes tell us the length of the incoming message.
 
 ```C++
 ssize_t received = recv(socket_fd_client,
@@ -404,20 +402,20 @@ ssize_t received = recv(socket_fd_client,
 total_size_received += static_cast<size_t>(received);
 ```
 
-The server reads the data from the socket and stores the number of received bytes to the `received` variable. Do not forget that `recv(...)` returns the number of received bytes.
+The server reads the data from the socket and stores the number of received bytes in the `received` variable. Do not forget that `recv(...)` returns the number of received bytes.
 
-The 2 important arguments that we pass are these:
+The two important arguments we pass are:
 
-- `reinterpret_cast<uint8_t*>(&message_size_network) + total_size_received`: pointer to the first byte of the `message_size_network` + whatever `total_size_received` has. So if `total_size_received` is 0, then `reinterpret_cast<uint8_t*>(&message_size_network)` points to the first byte of `message_size_network`, if `total_size_received` is 1, then `reinterpret_cast<uint8_t*>(&message_size_network)` points to the second byte of `message_size_network`.
+- `reinterpret_cast<uint8_t*>(&message_size_network) + total_size_received`: a pointer to the first byte of the `message_size_network` + whatever `total_size_received` has. So if `total_size_received` is 0, then `reinterpret_cast<uint8_t*>(&message_size_network)` points to the first byte of `message_size_network`, if `total_size_received` is 1, then `reinterpret_cast<uint8_t*>(&message_size_network)` points to the second byte of `message_size_network`.
 - `BYTES_MESSAGE_LENGTH - total_size_received`: read up to that many bytes from the socket.
 
 ```C++
 total_size_received += static_cast<size_t>(received);
 ```
 
-If, by any chance `recv(...)` returned only a single byte, then the condition in the while loop is not met, so we are going to have another iteration. Because of it, we need to update the `total_size_received` that tracks how many bytes we have already received.
+If `recv(...)` returns only a single byte, then the loop's termination condition has not yet been met, so we are going to have another iteration. Therefore, we need to update `total_size_received`, which tracks how many bytes we have already received.
 
-This scheme summerizes what this while loop, whose goal is to tell the message length, goal is:
+The following diagram summarizes how the `while` loop reads the message length:
 
                     START
                       |
@@ -448,7 +446,7 @@ This scheme summerizes what this while loop, whose goal is to tell the message l
               |                                       |
               +---------------------------------------+
 
-Last, but not least, we need to understand how we handle problems during reading from socket. We need these 3 `if` statements, because `recv(...)` does not always return the number of bytes received successfully. `recv(...)` can, essentially, return these values:
+Last but not least, we need to understand how we handle problems while reading from the socket. We need these 3 `if` statements, because `recv(...)` does not always return the number of bytes received successfully. `recv(...)` can return the following values:
 
 | Return value | Meaning | What your code should do |
 |--------------|---------|--------------------------|
@@ -471,15 +469,15 @@ if (received < 0)
                             "Failed to receive message length");
 ```
 
-These `if` statements, in chronological order, do:
+These `if` statements perform the following checks, in order:
 
-- The first `if` statement checks the condition when the `recv(...)` is waiting for bytes and a interrupt signal is received. This is why the `&& errno == EINTR` exists. Imagine a server started this loop and during the waiting (do not forget that if there are no bytes to be read in the socket, `recv(...)` becomes a blocking operation) period an external interrupt signal was received.
+- The first `if` statement checks whether `recv(...)` was interrupted by a signal while waiting for data. This is why we check `errno == EINTR`. Imagine that the server has started this loop and receives an interrupt signal while waiting for data (do not forget that if there are no bytes to be read in the socket, `recv(...)` becomes a blocking operation).
 
-- The second `if` statement checks if the client has disconnected once `recv(...)` was invoked. When a client disconnects, then `recv(...)` return `0`.
+- The second `if` statement checks whether the client has closed its sending side of the connection. When this happens, `recv(...)` returns `0` once all pending data has been read.
 
-- The third if statement handles all other problems when receiving bytes from the socket.
+- The third `if` statement handles all other errors when receiving bytes from the socket.
 
-Great, now we know how to encode bytes length and how to read them from the socket.
+Great, now we know how to encode message lengths and read them from a socket.
 
 
 ## 2.3. Sending and Receiving the Message
@@ -551,21 +549,21 @@ while (total_received < message_received.size())
 }
 ```
 
-If you notice, these 2 loops that are responsible for sending and receiving the data are actually very similar to the way the server was reading the message length. And, to be honest, this is a common practice how people are designing their programs when dealing with sockets. 
+As you may have noticed, these two loops, which are responsible for sending and receiving data, are very similar to the loop used by the server to read the message length. In fact, this is a common approach to designing programs that communicate through sockets. 
 
 In a sense, the design follows these steps:
 
-1. Define how many bytes we need to transfer (send or receive)
-2. Initialize a counter to track the transfer process
-3. Use a `while` loop to continue transfering bytes
+1. Determine how many bytes we need to transfer (send or receive)
+2. Initialize a counter to track the transfer progress
+3. Use a `while` loop to continue transferring bytes
 4. Call `send(...)` or `recv(...)` (depending on the role) to transfer the remaining bytes
 5. Handle possible errors
 6. Update the counter after a successful operation
-7. Repeat until all bytes have been transfered
+7. Repeat until all bytes have been transferred
 
-The important thing to understand is that TCP is a byte stream and not a message-based protocol. TCP guarantees that bytes are delivered in order, but does not guarantee that a single `send(...)` corresponds to a single `recv(...)`.
+The important thing to understand is that TCP is a byte-stream protocol, not a message-based protocol. TCP guarantees that bytes are delivered in order, but it does not guarantee that a single `send(...)` corresponds to a single `recv(...)`.
 
-This is the entire byte transfer scheme that happens most of the time:
+The following diagram illustrates a typical byte-transfer process:
 
     CLIENT                                     SERVER
     |                                          |
@@ -627,16 +625,16 @@ This is the entire byte transfer scheme that happens most of the time:
 
 # 3. Conclusion
 
-In this lesson, we learnt how to implement a simple length-prefixed protocol over TCP.
+In this lesson, we learned how to implement a simple length-prefixed protocol over TCP.
 
-We covered how to encode a message, using a predefined number of bytes and how to correctly read the message based on the decoded length of the message. 
+We covered how to encode a message using a predefined number of bytes and how to read the message correctly based on its decoded length. 
 
-These simple concepts are the building blocks of designing network systems. Almost all the networking protocols use the message length idea, it just might be implemented in other way. Encoding and reading the message length is the way to tell the system where a message begins and where it ends.
+These simple concepts are fundamental building blocks for designing network systems. Many networking protocols use some form of message-length encoding, although it may be implemented in different ways. Encoding and reading message lengths allows the receiver to determine where each message begins and ends.
 
 
 # 4. Hexadecimal Numbers
 
-In C++, a hexadecimal number is denoted when `0x` is added before the number. A few examples:
+In C++, hexadecimal integer literals are written with the prefix `0x`. Here are a few examples:
 
     C++ Hexadecimal Table
 
@@ -674,7 +672,7 @@ int main() {
 
 Note:
 
-- `hex` - Displays numbers in hexadecimal.
-- `dec` - Displays numbers in decimal.
-- `0x` - Prefix for hexadecimal literals in C++.
+- `hex` — Displays numbers in hexadecimal.
+- `dec` — Displays numbers in decimal.
+- `0x` — Prefix for hexadecimal literals in C++.
 - Hexadecimal uses digits `0-9` and letters `A-F` (base 16).

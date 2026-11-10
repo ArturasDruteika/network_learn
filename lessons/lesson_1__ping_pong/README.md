@@ -2,7 +2,7 @@
 
 ## Premise
 
-There is a saying that you only truly understand something when you can explain it simply.
+There is a saying that you only truly understand something when you can explain it simply to a child.
 
 That is the idea behind these lessons.
 

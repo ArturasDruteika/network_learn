@@ -10,6 +10,7 @@ set(
     LESSONS
     lesson_1__ping_pong
     lesson_2__tcp_message_length
+    lesson_3__multiple_clients
 )
 
 # ---------------------------------------------------------------------------

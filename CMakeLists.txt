@@ -19,6 +19,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # The lesson-specific final layout is created by install() rules.
 # ---------------------------------------------------------------------------
 
+add_library(asio INTERFACE)
+
+target_include_directories(asio
+    INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/asio/asio/include
+)
+
+target_compile_definitions(asio
+    INTERFACE
+        ASIO_STANDALONE
+)
+
 if(NOT CMAKE_GENERATOR MATCHES "Visual Studio")
 
     set(

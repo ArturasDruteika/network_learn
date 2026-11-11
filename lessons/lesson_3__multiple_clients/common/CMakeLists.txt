@@ -14,3 +14,8 @@ target_include_directories(tcp_common__lesson_3
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+target_link_libraries(tcp_common__lesson_3
+    PUBLIC
+        asio
+)

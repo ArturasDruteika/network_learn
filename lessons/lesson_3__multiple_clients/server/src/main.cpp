@@ -1,32 +1,40 @@
-#include "server/tcp_server.hpp"
+#include "server/chat_room.hpp"
+#include "server/chat_server.hpp"
 
-#include "spdlog/spdlog.h"
+#include "common/protocol.hpp"
 
+#include "boost/asio.hpp"
+
+#include <cstdlib>
 #include <exception>
+#include <iostream>
+#include <stdexcept>
+#include <string>
 
 
-constexpr int PORT_SERVER = 8000;
-constexpr const char* IP_SERVER = "127.0.0.1";
-
-
-int main()
+int main(int argc, char* argv[])
 {
     try
     {
-        TcpServer server(IP_SERVER,
-                         PORT_SERVER);
+        const int port = argc > 1 ? std::stoi(argv[1]) : common::default_port;
 
-        server.start();
+        if (argc > 2 || port < 1 || port > 65535)
+            throw std::invalid_argument("Usage: ChatServer [port: 1-65535]");
 
-        server.run();
+        boost::asio::io_context io_context;
+        server::ChatRoom room;
+        server::ChatServer ChatServer(io_context,
+                                        static_cast<unsigned short>(port),
+                                        room);
+
+        std::cout << "Chat server listening on port " << port << '\n';
+        io_context.run();
     }
-    catch (const std::exception& e)
+    catch (const std::exception& error)
     {
-        spdlog::error("Server error: {}",
-                      e.what());
-
-        return 1;
+        std::cerr << "Server error: " << error.what() << '\n';
+        return EXIT_FAILURE;
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }

@@ -1,79 +1,87 @@
-#include "client/tcp_client.hpp"
+#include "client/chat_client.hpp"
 
-#include "spdlog/spdlog.h"
+#include "common/protocol.hpp"
 
+#include "boost/asio.hpp"
+
+#include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <memory>
 #include <string>
-
-
-constexpr int PORT_SERVER = 8000;
-constexpr const char* IP_SERVER = "127.0.0.1";
+#include <thread>
 
 
 int main(int argc, char* argv[])
 {
+    if (argc != 3 && argc != 4)
+    {
+        std::cerr << "Usage: ChatClient <host> <nickname> [port]\n";
+        return EXIT_FAILURE;
+    }
+
+    const std::string nickname = argv[2];
+
+    if (!common::valid_name(nickname))
+    {
+        std::cerr << "Nickname must be 1-24 letters, digits, '_' or '-'.\n";
+        return EXIT_FAILURE;
+    }
+
     try
     {
-        TcpClient client(
-            IP_SERVER,
-            PORT_SERVER
-        );
+        boost::asio::io_context io_context;
+        auto ChatClient = std::make_shared<client::ChatClient>(io_context);
 
-        client.connect();
+        ChatClient->connect(argv[1],
+                            argc == 4 ? argv[3] : std::to_string(common::default_port),
+                            nickname);
 
-        // -----------------------------------------
-        // Command-line mode
-        // -----------------------------------------
-        //
-        // Example:
-        //
-        // ./client "Hello" "Second message"
-        //
-        if (argc > 1)
+        auto work_guard = boost::asio::make_work_guard(io_context);
+        std::thread network_thread([&io_context]()
+                                   {
+                                       io_context.run();
+                                   });
+
+        std::cout << "Connected as " << nickname << ". Type messages, or /quit to exit.\n";
+
+        std::string line;
+
+        while (std::getline(std::cin, line))
         {
-            for (int i = 1; i < argc; ++i)
+            if (line == "/quit")
+                break;
+
+            if (line.size() > common::max_message_length)
             {
-                client.send_message(argv[i]);
+                std::cerr << "Message too long (maximum 2048 bytes).\n";
+                continue;
             }
-        }
-        else
-        {
-            // -----------------------------------------
-            // Interactive mode
-            // -----------------------------------------
-            //
-            // Keep reading messages from standard input
-            // and sending them to the server.
-            //
-            // Type /quit to disconnect.
-            //
-            spdlog::info(
-                "Enter messages to send. Type /quit to exit."
-            );
 
-            std::string message;
-
-            while (std::getline(std::cin, message))
+            if (!line.empty())
             {
-                if (message == "/quit")
-                    break;
-
-                client.send_message(message);
+                boost::asio::post(io_context,
+                                  [ChatClient, line]()
+                                  {
+                                      ChatClient->send(line);
+                                  });
             }
         }
 
-        client.disconnect();
+        boost::asio::post(io_context,
+                          [ChatClient]()
+                          {
+                              ChatClient->stop();
+                          });
+
+        work_guard.reset();
+        network_thread.join();
     }
-    catch (const std::exception& e)
+    catch (const std::exception& error)
     {
-        spdlog::error(
-            "Client error: {}",
-            e.what()
-        );
-
-        return 1;
+        std::cerr << "Client error: " << error.what() << '\n';
+        return EXIT_FAILURE;
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }

@@ -9,25 +9,19 @@
 
 namespace server
 {
-
-    namespace asio = boost::asio;
-    using tcp = asio::ip::tcp;
-
-
-    ChatServer::ChatServer(asio::io_context& io_context,
-                             unsigned short port,
-                             IChatRoom& room)
-        : m_acceptor(io_context, tcp::endpoint(tcp::v4(), port)),
+    ChatServer::ChatServer(boost::asio::io_context &io_context,
+                           unsigned short port,
+                           IChatRoom &room)
+        : m_acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
           m_room(room)
     {
         accept_next();
     }
 
-
     void ChatServer::accept_next()
     {
         m_acceptor.async_accept(
-            [this](boost::system::error_code error, tcp::socket socket)
+            [this](boost::system::error_code error, boost::asio::ip::tcp::socket socket)
             {
                 if (!error)
                     std::make_shared<Session>(std::move(socket), m_room)->start();

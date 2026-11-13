@@ -5,7 +5,6 @@
 
 namespace server
 {
-
     class IChatParticipant
     {
     public:
@@ -14,5 +13,4 @@ namespace server
         virtual const std::string& name() const = 0;
         virtual void deliver(const std::string& text) = 0;
     };
-
 }

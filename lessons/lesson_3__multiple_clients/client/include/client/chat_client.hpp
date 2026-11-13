@@ -9,9 +9,9 @@
 
 namespace client
 {
-
     // Networking only; main.cpp handles terminal input and display policy.
-    class ChatClient final : public std::enable_shared_from_this<ChatClient>
+    class ChatClient final 
+        : public std::enable_shared_from_this<ChatClient>
     {
     public:
         explicit ChatClient(boost::asio::io_context& io_context);
@@ -34,5 +34,4 @@ namespace client
         std::deque<std::string> m_outbox;
         boost::asio::ip::tcp::socket m_socket;
     };
-
 }

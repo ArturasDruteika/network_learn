@@ -1,14 +1,14 @@
 #pragma once
 
+
+#include "i_chat_participant.hpp"
+
 #include <memory>
 #include <string>
 
 
 namespace server
 {
-
-    class IChatParticipant;
-
     class IChatRoom
     {
     public:
@@ -19,5 +19,4 @@ namespace server
         virtual bool name_taken(const std::string& name) const = 0;
         virtual void broadcast(const std::string& message) = 0;
     };
-
 }

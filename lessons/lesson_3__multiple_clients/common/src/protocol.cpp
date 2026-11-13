@@ -7,7 +7,6 @@
 
 namespace common
 {
-
     bool valid_name(const std::string& name)
     {
         if (name.empty() || name.size() > max_name_length)
@@ -21,7 +20,6 @@ namespace common
                            });
     }
 
-
     std::string strip_cr(std::string line)
     {
         if (!line.empty() && line.back() == '\r')
@@ -29,5 +27,4 @@ namespace common
 
         return line;
     }
-
 }

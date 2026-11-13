@@ -1,6 +1,7 @@
 #pragma once
 
 #include "server/i_chat_participant.hpp"
+#include "server/i_chat_room.hpp"
 
 #include "boost/asio.hpp"
 
@@ -11,9 +12,6 @@
 
 namespace server
 {
-
-    class IChatRoom;
-
     // A Session owns a single socket and its asynchronous I/O state.
     // All Session and room operations run on the server's io_context thread.
     class Session final : public IChatParticipant,
@@ -31,15 +29,15 @@ namespace server
         void read_line();
         void write_next();
         void close();
-
-        boost::asio::ip::tcp::socket m_socket;
-        IChatRoom& m_room;
-        std::string m_name;
-        std::string m_input;
-        std::deque<std::string> m_outbox;
+    
+    private:
         bool m_joined = false;
         bool m_closed = false;
         bool m_closing_after_write = false;
+        std::string m_name;
+        std::string m_input;
+        std::deque<std::string> m_outbox;
+        boost::asio::ip::tcp::socket m_socket;
+        IChatRoom& m_room;
     };
-
 }

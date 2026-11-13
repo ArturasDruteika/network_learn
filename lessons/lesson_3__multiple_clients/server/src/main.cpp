@@ -12,7 +12,7 @@
 #include <string>
 
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     try
     {
@@ -24,13 +24,13 @@ int main(int argc, char* argv[])
         boost::asio::io_context io_context;
         server::ChatRoom room;
         server::ChatServer ChatServer(io_context,
-                                        static_cast<unsigned short>(port),
-                                        room);
+                                      static_cast<unsigned short>(port),
+                                      room);
 
         std::cout << "Chat server listening on port " << port << '\n';
         io_context.run();
     }
-    catch (const std::exception& error)
+    catch (const std::exception &error)
     {
         std::cerr << "Server error: " << error.what() << '\n';
         return EXIT_FAILURE;

@@ -11,12 +11,10 @@ namespace server
         m_members.insert(participant);
     }
 
-
     void ChatRoom::leave(const std::shared_ptr<IChatParticipant>& participant)
     {
         m_members.erase(participant);
     }
-
 
     bool ChatRoom::name_taken(const std::string& name) const
     {
@@ -29,7 +27,6 @@ namespace server
         return false;
     }
 
-
     void ChatRoom::broadcast(const std::string& message)
     {
         std::cout << message << '\n';
@@ -37,5 +34,4 @@ namespace server
         for (const auto& member : m_members)
             member->deliver(message);
     }
-
 }

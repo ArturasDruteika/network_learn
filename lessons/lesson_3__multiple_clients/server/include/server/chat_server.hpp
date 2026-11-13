@@ -1,13 +1,11 @@
 #pragma once
 
+#include "i_chat_room.hpp"
 #include "boost/asio.hpp"
 
 
 namespace server
 {
-
-    class IChatRoom;
-
     // Accepts connections and constructs sessions; room behavior is injected.
     class ChatServer final
     {
@@ -19,8 +17,8 @@ namespace server
     private:
         void accept_next();
 
+    private:
         boost::asio::ip::tcp::acceptor m_acceptor;
         IChatRoom& m_room;
     };
-
 }

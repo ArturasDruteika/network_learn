@@ -1,6 +1,6 @@
 #include "server/chat_room.hpp"
 
-#include <iostream>
+#include "spdlog/spdlog.h"
 
 
 namespace server
@@ -29,7 +29,7 @@ namespace server
 
     void ChatRoom::broadcast(const std::string& message)
     {
-        std::cout << message << '\n';
+        spdlog::info("{}", message);
 
         for (const std::shared_ptr<server::IChatParticipant>& member : m_members)
             member->deliver(message);

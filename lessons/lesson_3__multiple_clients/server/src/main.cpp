@@ -4,15 +4,15 @@
 #include "common/protocol.hpp"
 
 #include "asio.hpp"
+#include "spdlog/spdlog.h"
 
 #include <cstdlib>
 #include <exception>
-#include <iostream>
 #include <stdexcept>
 #include <string>
 
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     try
     {
@@ -22,17 +22,20 @@ int main(int argc, char *argv[])
             throw std::invalid_argument("Usage: ChatServer [port: 1-65535]");
 
         asio::io_context io_context;
-        server::ChatRoom room;
-        server::ChatServer ChatServer(io_context,
-                                      static_cast<unsigned short>(port),
-                                      room);
 
-        std::cout << "Chat server listening on port " << port << '\n';
+        server::ChatRoom room;
+
+        server::ChatServer chat_server(io_context,
+                                       static_cast<unsigned short>(port),
+                                       room);
+
+        spdlog::info("Chat server listening on port {}", port);
+
         io_context.run();
     }
-    catch (const std::exception &error)
+    catch (const std::exception& error)
     {
-        std::cerr << "Server error: " << error.what() << '\n';
+        spdlog::error("Server error: {}", error.what());
         return EXIT_FAILURE;
     }
 

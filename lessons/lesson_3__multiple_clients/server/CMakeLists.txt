@@ -13,4 +13,5 @@ target_link_libraries(server__lesson_3
     PRIVATE 
         common__lesson_3
         asio
+        spdlog::spdlog
 )

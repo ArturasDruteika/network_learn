@@ -11,5 +11,6 @@ target_include_directories(server__lesson_3
 
 target_link_libraries(server__lesson_3
     PRIVATE 
-        common__lesson_3 
+        common__lesson_3
+        asio
 )

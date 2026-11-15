@@ -1,6 +1,6 @@
 #pragma once
 
-#include "boost/asio.hpp"
+#include "asio.hpp"
 
 #include <deque>
 #include <memory>
@@ -23,7 +23,7 @@ namespace client
         /// @brief Constructs a chat client using the provided I/O context.
         ///
         /// @param io_context Boost.Asio I/O context used for asynchronous operations.
-        explicit ChatClient(boost::asio::io_context& io_context);
+        explicit ChatClient(asio::io_context& io_context);
 
         /// @brief Establishes a connection to the chat server.
         ///
@@ -86,6 +86,6 @@ namespace client
         ///
         /// Handles asynchronous read and write operations over
         /// the established connection.
-        boost::asio::ip::tcp::socket m_socket;
+        asio::ip::tcp::socket m_socket;
     };
 }

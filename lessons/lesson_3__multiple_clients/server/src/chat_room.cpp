@@ -18,7 +18,7 @@ namespace server
 
     bool ChatRoom::name_taken(const std::string& name) const
     {
-        for (const auto& member : m_members)
+        for (const std::shared_ptr<server::IChatParticipant>& member : m_members)
         {
             if (member->name() == name)
                 return true;
@@ -31,7 +31,7 @@ namespace server
     {
         std::cout << message << '\n';
 
-        for (const auto& member : m_members)
+        for (const std::shared_ptr<server::IChatParticipant>& member : m_members)
             member->deliver(message);
     }
 }

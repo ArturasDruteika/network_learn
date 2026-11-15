@@ -10,4 +10,6 @@ target_include_directories(client__lesson_3
 target_link_libraries(client__lesson_3 
     PRIVATE 
         common__lesson_3
+        asio
+        spdlog::spdlog
 )

@@ -4,7 +4,7 @@
 #include "server/i_chat_participant.hpp"
 #include "server/i_chat_room.hpp"
 
-#include "boost/asio.hpp"
+#include "asio.hpp"
 
 #include <deque>
 #include <memory>
@@ -36,7 +36,7 @@ namespace server
         ///
         /// @param socket Connected TCP socket transferred to the session.
         /// @param room Reference to the chatroom managing this participant.
-        Session(boost::asio::ip::tcp::socket socket,
+        Session(asio::ip::tcp::socket socket,
                 IChatRoom& room);
 
         /// @brief Starts processing the client's connection.
@@ -124,7 +124,7 @@ namespace server
         ///
         /// Owns the underlying TCP connection and handles asynchronous
         /// read and write operations throughout the session's lifetime.
-        boost::asio::ip::tcp::socket m_socket;
+        asio::ip::tcp::socket m_socket;
 
         /// @brief Reference to the chatroom managing this session.
         ///

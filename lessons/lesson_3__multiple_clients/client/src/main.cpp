@@ -2,7 +2,7 @@
 
 #include "common/protocol.hpp"
 
-#include "boost/asio.hpp"
+#include "asio.hpp"
 
 #include <cstdlib>
 #include <exception>
@@ -30,14 +30,14 @@ int main(int argc, char* argv[])
 
     try
     {
-        boost::asio::io_context io_context;
-        auto ChatClient = std::make_shared<client::ChatClient>(io_context);
+        asio::io_context io_context;
+        std::shared_ptr<client::ChatClient> ChatClient = std::make_shared<client::ChatClient>(io_context);
 
         ChatClient->connect(argv[1],
                             argc == 4 ? argv[3] : std::to_string(common::default_port),
                             nickname);
 
-        auto work_guard = boost::asio::make_work_guard(io_context);
+        asio::executor_work_guard<asio::io_context::executor_type, void, void> work_guard = asio::make_work_guard(io_context);
         std::thread network_thread([&io_context]()
                                    {
                                        io_context.run();
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
 
             if (!line.empty())
             {
-                boost::asio::post(io_context,
+                asio::post(io_context,
                                   [ChatClient, line]()
                                   {
                                       ChatClient->send(line);
@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
             }
         }
 
-        boost::asio::post(io_context,
+        asio::post(io_context,
                           [ChatClient]()
                           {
                               ChatClient->stop();

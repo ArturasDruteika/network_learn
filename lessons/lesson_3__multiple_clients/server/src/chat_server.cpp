@@ -4,31 +4,32 @@
 #include "server/session.hpp"
 
 #include <memory>
+#include <system_error>
 #include <utility>
 
 
 namespace server
 {
-    ChatServer::ChatServer(boost::asio::io_context &io_context,
+    ChatServer::ChatServer(asio::io_context& io_context,
                            unsigned short port,
-                           IChatRoom &room)
-        : m_acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
-          m_room(room)
+                           IChatRoom& room)
+        : m_acceptor(io_context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port))
+        , m_room(room)
     {
         accept_next();
     }
 
+
     void ChatServer::accept_next()
     {
-        m_acceptor.async_accept(
-            [this](boost::system::error_code error, boost::asio::ip::tcp::socket socket)
-            {
-                if (!error)
-                    std::make_shared<Session>(std::move(socket), m_room)->start();
+        m_acceptor.async_accept([this](std::error_code error, asio::ip::tcp::socket socket)
+                                {
+                                    if (!error)
+                                        std::make_shared<Session>(std::move(socket), m_room)->start();
 
-                if (m_acceptor.is_open())
-                    accept_next();
-            });
+                                    if (m_acceptor.is_open())
+                                        accept_next();
+                                });
     }
 
 }

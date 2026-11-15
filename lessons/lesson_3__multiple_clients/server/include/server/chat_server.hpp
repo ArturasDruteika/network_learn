@@ -2,7 +2,7 @@
 
 
 #include "i_chat_room.hpp"
-#include "boost/asio.hpp"
+#include "asio.hpp"
 
 
 namespace server
@@ -25,7 +25,7 @@ namespace server
         /// @param io_context Boost.Asio I/O context used for asynchronous operations.
         /// @param port TCP port on which the server listens for connections.
         /// @param room Reference to the chatroom responsible for managing participants.
-        ChatServer(boost::asio::io_context& io_context,
+        ChatServer(asio::io_context& io_context,
                    unsigned short port,
                    IChatRoom& room);
 
@@ -44,7 +44,7 @@ namespace server
         ///
         /// Manages the server's listening socket and asynchronously
         /// accepts incoming TCP connections.
-        boost::asio::ip::tcp::acceptor m_acceptor;
+        asio::ip::tcp::acceptor m_acceptor;
 
         /// @brief Reference to the chatroom used by connected client sessions.
         ///

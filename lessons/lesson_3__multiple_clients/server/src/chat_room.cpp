@@ -16,11 +16,11 @@ namespace server
         m_members.erase(participant);
     }
 
-    bool ChatRoom::name_taken(const std::string& name) const
+    bool ChatRoom::username_taken(const std::string& username) const
     {
         for (const std::shared_ptr<server::IChatParticipant>& member : m_members)
         {
-            if (member->name() == name)
+            if (member->username() == username)
                 return true;
         }
 

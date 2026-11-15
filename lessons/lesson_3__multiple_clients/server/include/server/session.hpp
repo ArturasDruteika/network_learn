@@ -45,10 +45,10 @@ namespace server
         /// handling the client's communication with the chat server.
         void start();
 
-        /// @brief Retrieves the participant's nickname.
+        /// @brief Retrieves the participant's username.
         ///
-        /// @return Constant reference to the nickname associated with this session.
-        const std::string& name() const override;
+        /// @return Constant reference to the username associated with this session.
+        const std::string& username() const override;
 
         /// @brief Queues a message for delivery to the connected client.
         ///
@@ -62,7 +62,7 @@ namespace server
         /// @brief Asynchronously reads the next line from the client.
         ///
         /// Processes incoming protocol records, including the initial
-        /// nickname registration and subsequent chat messages.
+        /// username registration and subsequent chat messages.
         ///
         /// Continues receiving data while the connection remains active.
         void read_line();
@@ -86,7 +86,7 @@ namespace server
     private:
         /// @brief Indicates whether the session has joined the chatroom.
         ///
-        /// Tracks whether the client's nickname has been accepted
+        /// Tracks whether the client's username has been accepted
         /// and the session has been registered as an active participant.
         bool m_joined = false;
 
@@ -102,11 +102,11 @@ namespace server
         /// the TCP connection is closed.
         bool m_closing_after_write = false;
 
-        /// @brief Stores the nickname associated with the connected client.
+        /// @brief Stores the username associated with the connected client.
         ///
         /// Identifies the participant within the chatroom after
-        /// successful nickname registration.
-        std::string m_name;
+        /// successful username registration.
+        std::string m_username;
 
         /// @brief Stores incoming data received from the client.
         ///
@@ -129,7 +129,7 @@ namespace server
         /// @brief Reference to the chatroom managing this session.
         ///
         /// Provides access to participant registration, removal,
-        /// nickname validation, and message broadcasting through
+        /// username validation, and message broadcasting through
         /// the IChatRoom interface.
         ///
         /// The chatroom is managed externally and must remain valid

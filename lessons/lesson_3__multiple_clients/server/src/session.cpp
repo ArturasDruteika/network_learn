@@ -23,9 +23,9 @@ namespace server
     }
 
 
-    const std::string& Session::name() const
+    const std::string& Session::username() const
     {
-        return m_name;
+        return m_username;
     }
 
 
@@ -65,26 +65,26 @@ namespace server
 
                                    if (!self->m_joined)
                                    {
-                                       if (!common::valid_name(line) || self->m_room.name_taken(line))
+                                       if (!common::valid_name(line) || self->m_room.username_taken(line))
                                        {
-                                           self->deliver("[server] Invalid or already-used nickname; disconnecting.");
+                                           self->deliver("[server] Invalid or already-used username; disconnecting.");
                                            self->m_closing_after_write = true;
                                            return;
                                        }
 
-                                       self->m_name = std::move(line);
+                                       self->m_username = std::move(line);
                                        self->m_joined = true;
 
                                        self->m_room.join(self);
 
-                                       self->deliver("[server] Welcome, " + self->m_name + "!");
+                                       self->deliver("[server] Welcome, " + self->m_username + "!");
 
-                                       self->m_room.broadcast("[server] " + self->m_name + " joined the room.");
+                                       self->m_room.broadcast("[server] " + self->m_username + " joined the room.");
                                    }
                                    else if (line.size() > common::max_message_length)
                                        self->deliver("[server] Message too long (maximum 2048 bytes).");
                                    else if (!line.empty())
-                                       self->m_room.broadcast("[" + self->m_name + "] " + line);
+                                       self->m_room.broadcast("[" + self->m_username + "] " + line);
 
                                    self->read_line();
                                });
@@ -135,7 +135,7 @@ namespace server
 
             m_room.leave(shared_from_this());
 
-            m_room.broadcast("[server] " + m_name + " left the room.");
+            m_room.broadcast("[server] " + m_username + " left the room.");
         }
     }
 

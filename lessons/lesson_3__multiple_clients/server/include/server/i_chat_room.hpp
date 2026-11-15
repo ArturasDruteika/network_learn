@@ -12,7 +12,7 @@ namespace server
     /// @brief Defines the interface for managing a chatroom.
     ///
     /// Provides operations for registering and removing participants,
-    /// checking nickname availability, and broadcasting messages
+    /// checking username availability, and broadcasting messages
     /// to connected clients.
     ///
     /// Concrete implementations are responsible for managing
@@ -39,14 +39,14 @@ namespace server
         /// @param participant Shared pointer to the participant to remove.
         virtual void leave(const std::shared_ptr<IChatParticipant>& participant) = 0;
 
-        /// @brief Checks whether a nickname is already in use.
+        /// @brief Checks whether a username is already in use.
         ///
-        /// Determines whether the specified nickname belongs to
+        /// Determines whether the specified username belongs to
         /// an active participant in the chatroom.
         ///
-        /// @param name Nickname to check.
-        /// @return `true` if the nickname is already taken; otherwise, `false`.
-        virtual bool name_taken(const std::string& name) const = 0;
+        /// @param username username to check.
+        /// @return `true` if the username is already taken; otherwise, `false`.
+        virtual bool username_taken(const std::string& username) const = 0;
 
         /// @brief Broadcasts a message to all connected participants.
         ///

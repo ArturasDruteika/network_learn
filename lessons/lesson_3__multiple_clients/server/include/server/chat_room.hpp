@@ -15,7 +15,7 @@ namespace server
     ///
     /// Implements the IChatRoom interface by maintaining a collection
     /// of active participants, managing their membership, checking
-    /// nickname availability, and broadcasting messages.
+    /// username availability, and broadcasting messages.
     ///
     /// Each participant is represented by a shared pointer to
     /// IChatParticipant, allowing the chatroom to manage participants
@@ -40,14 +40,14 @@ namespace server
         /// @param participant Shared pointer to the participant to remove.
         void leave(const std::shared_ptr<IChatParticipant>& participant) override;
 
-        /// @brief Checks whether a nickname is already in use.
+        /// @brief Checks whether a username is already in use.
         ///
         /// Searches the active participants to determine whether
-        /// the specified nickname is registered in the chatroom.
+        /// the specified username is registered in the chatroom.
         ///
-        /// @param name Nickname to check.
-        /// @return `true` if the nickname is already taken; otherwise, `false`.
-        bool name_taken(const std::string& name) const override;
+        /// @param username username to check.
+        /// @return `true` if the username is already taken; otherwise, `false`.
+        bool username_taken(const std::string& username) const override;
 
         /// @brief Broadcasts a message to all connected participants.
         ///

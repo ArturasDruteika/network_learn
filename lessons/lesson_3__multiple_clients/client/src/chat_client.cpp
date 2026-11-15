@@ -14,14 +14,14 @@ namespace client
 
     void ChatClient::connect(const std::string& host,
                              const std::string& port,
-                             const std::string& nickname)
+                             const std::string& username)
     {
         asio::ip::tcp::resolver resolver(m_socket.get_executor());
 
         asio::connect(m_socket,
                       resolver.resolve(host, port));
 
-        send(nickname);
+        send(username);
         read_line();
     }
 

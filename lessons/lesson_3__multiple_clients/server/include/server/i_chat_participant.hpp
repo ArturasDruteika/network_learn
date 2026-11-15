@@ -9,7 +9,7 @@ namespace server
     /// @brief Defines the interface for a chatroom participant.
     ///
     /// Represents a client connected to the chatroom and provides
-    /// operations for retrieving the participant's nickname and
+    /// operations for retrieving the participant's username and
     /// delivering messages.
     ///
     /// Concrete implementations are responsible for managing
@@ -20,10 +20,10 @@ namespace server
         /// @brief Virtual destructor.
         virtual ~IChatParticipant() = default;
 
-        /// @brief Retrieves the participant's nickname.
+        /// @brief Retrieves the participant's username.
         ///
-        /// @return Constant reference to the participant's nickname.
-        virtual const std::string& name() const = 0;
+        /// @return Constant reference to the participant's username.
+        virtual const std::string& username() const = 0;
 
         /// @brief Delivers a message to the participant.
         ///

@@ -28,14 +28,14 @@ namespace client
         /// @brief Establishes a connection to the chat server.
         ///
         /// Resolves the specified host and port, connects to the server,
-        /// and registers the client using the provided nickname.
+        /// and registers the client using the provided username.
         ///
         /// @param host Hostname or IP address of the chat server.
         /// @param port Port number or service name of the chat server.
-        /// @param nickname Nickname used to identify the client in the chatroom.
+        /// @param username username used to identify the client in the chatroom.
         void connect(const std::string& host,
                      const std::string& port,
-                     const std::string& nickname);
+                     const std::string& username);
 
         /// @brief Queues a message to be sent to the chat server.
         ///
